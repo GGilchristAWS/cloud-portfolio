@@ -5,13 +5,13 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 - **Infrastructure as Code** — everything in Terraform, including the GitHub repository itself
 - **Keyless CI/CD** — GitHub Actions authenticates to AWS via OIDC; no stored access keys
 - **Least privilege** — separate read-only plan role (pull requests) and deploy role (protected `production` environment)
-- **Cost guardrails** — AWS Budgets alerts on gross usage, free-tier-first design, full teardown/rebuild
+- **Cost guardrails** — daily and monthly budgets, Cost Anomaly Detection, ephemeral demo stack with full teardown/rebuild
 
 ## Layout
 
 | Path | Purpose |
 |---|---|
-| `bootstrap/` | One-time foundation, applied locally by an admin: state bucket, GitHub OIDC provider and CI roles, budgets, repository settings |
+| `bootstrap/` | One-time foundation, applied locally by an admin: state bucket, GitHub OIDC provider and CI roles, cost guardrails, repository settings |
 
 ## Bootstrap
 

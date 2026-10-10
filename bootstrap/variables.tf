@@ -33,7 +33,19 @@ variable "budget_alert_email" {
 }
 
 variable "monthly_budget_usd" {
-  description = "Monthly cost budget in USD (gross usage, before credits)."
+  description = "Monthly cost budget in USD (actual bill)."
   type        = number
   default     = 10
+}
+
+variable "daily_budget_usd" {
+  description = "Daily cost budget in USD. Exceeding it usually means a demo stack was left running."
+  type        = number
+  default     = 1.5
+}
+
+variable "anomaly_threshold_usd" {
+  description = "Minimum total impact in USD for a cost anomaly alert."
+  type        = number
+  default     = 3
 }
