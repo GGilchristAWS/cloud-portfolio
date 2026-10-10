@@ -24,6 +24,10 @@ resource "aws_ecr_registry_scanning_configuration" "this" {
   }
 }
 
+# Images must be pushed as single manifests (docker build --provenance=false
+# --sbom=false). BuildKit's default attestations wrap the image in an index
+# whose child manifests are untagged: basic scanning skips the index, and the
+# untagged-expiry rule below would delete the children out from under it.
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
 

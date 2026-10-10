@@ -24,9 +24,11 @@ resource "aws_cloudwatch_metric_alarm" "no_healthy_targets" {
   evaluation_periods  = 3
   threshold           = 1
   comparison_operator = "LessThanThreshold"
-  treat_missing_data  = "breaching"
-  alarm_actions       = local.alarm_actions
-  ok_actions          = local.alarm_actions
+  # A live ALB reports 0 when no targets are healthy; data is only missing in
+  # the first minutes after the stack is created, which should not alert.
+  treat_missing_data = "notBreaching"
+  alarm_actions      = local.alarm_actions
+  ok_actions         = local.alarm_actions
 }
 
 resource "aws_cloudwatch_metric_alarm" "target_5xx" {
