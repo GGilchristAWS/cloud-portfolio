@@ -92,8 +92,7 @@ resource "aws_iam_role_policy" "github_plan_state" {
 }
 
 # --- Deploy role -----------------------------------------------------------
-# Service permissions for the application stack are added in Phase 5, once
-# the hosting architecture is chosen. Until then it can only manage state.
+# State access is defined here; app stack permissions are in deploy_permissions.tf.
 
 resource "aws_iam_role" "github_deploy" {
   name               = "github-actions-deploy"

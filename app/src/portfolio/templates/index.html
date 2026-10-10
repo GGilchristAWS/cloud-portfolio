@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Geoffrey Gilchrist · Cloud Operations</title>
+  <style>
+    :root {
+      --bg: #f7f7f5; --fg: #1d1d1b; --muted: #5f5f5a; --card: #ffffff;
+      --line: #e3e3de; --accent: #c2410c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141413; --fg: #ecebe6; --muted: #a3a29b; --card: #1e1e1c;
+        --line: #33332f; --accent: #fb923c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { max-width: 860px; margin: 0 auto; padding: 48px 16px 64px; }
+    h1 { font-size: 2.2rem; line-height: 1.2; margin: 0 0 8px; }
+    h2 { font-size: 1.15rem; margin: 40px 0 12px; }
+    .lede { color: var(--muted); font-size: 1.1rem; margin: 0; }
+    a { color: var(--accent); }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .card h3 { margin: 0 0 4px; font-size: 1rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    ol.flow { padding-left: 20px; margin: 0; }
+    ol.flow li { margin-bottom: 4px; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: ui-monospace, "Cascadia Code", monospace; overflow-wrap: anywhere; }
+    footer { margin-top: 48px; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Geoffrey Gilchrist</h1>
+  <p class="lede">Cloud operations engineer and architect. This page is itself the portfolio piece:
+    every layer below was provisioned with Terraform and shipped by a GitHub Actions pipeline.</p>
+
+  <h2>What this demonstrates</h2>
+  <div class="grid">
+    <div class="card"><h3>Infrastructure as Code</h3>
+      <p>Terraform for the VPC, load balancer, ECS, IAM, budgets and even the GitHub repository.</p></div>
+    <div class="card"><h3>Keyless CI/CD</h3>
+      <p>GitHub Actions assumes AWS roles through OIDC. No access keys exist anywhere.</p></div>
+    <div class="card"><h3>Least privilege</h3>
+      <p>Read-only plan role for pull requests; a scoped deploy role gated by a protected environment.</p></div>
+    <div class="card"><h3>Cost engineering</h3>
+      <p>Fargate Spot, no NAT gateway, budgets and anomaly alerts, and a stack torn down nightly.</p></div>
+  </div>
+
+  <h2>How a change reaches this page</h2>
+  <ol class="flow">
+    <li>Pull request runs tests, lint, security scans and <code>terraform plan</code>.</li>
+    <li>Merge to <code>main</code> builds an immutable image tagged with the commit SHA and pushes it to ECR.</li>
+    <li>The <code>production</code> environment job applies Terraform with the new image tag.</li>
+    <li>ECS rolls out the task behind the ALB; the circuit breaker rolls back on failed health checks.</li>
+  </ol>
+
+  <h2>Served by</h2>
+  <div class="card">
+    <dl>
+      <dt>Commit</dt><dd>{{ build.commit }}</dd>
+      <dt>Version</dt><dd>{{ build.version }}</dd>
+      <dt>Built</dt><dd>{{ build.build_time }}</dd>
+      <dt>Platform</dt><dd>{{ runtime.platform }}</dd>
+      <dt>Task</dt><dd>{{ runtime.task }}</dd>
+      <dt>Task definition</dt><dd>{{ runtime.revision }}</dd>
+      <dt>Availability zone</dt><dd>{{ runtime.zone }}</dd>
+    </dl>
+  </div>
+
+  <footer>Source and architecture: <a href="{{ repo_url }}">{{ repo_url }}</a></footer>
+</main>
+</body>
+</html>

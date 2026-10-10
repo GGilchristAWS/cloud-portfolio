@@ -1,0 +1,33 @@
+[project]
+name = "portfolio"
+version = "0.1.0"
+description = "Cloud portfolio web app served from ECS Fargate"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "jinja2",
+    "uvicorn",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2",
+    "pytest",
+    "ruff",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
