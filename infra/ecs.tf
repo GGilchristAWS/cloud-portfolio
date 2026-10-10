@@ -11,11 +11,16 @@ locals {
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/${var.project}"
   retention_in_days = var.log_retention_days
+
+  #checkov:skip=CKV_AWS_158:Default CloudWatch encryption; a KMS key costs $1/month
+  #checkov:skip=CKV_AWS_338:7-day retention keeps log storage near zero for a demo
 }
 
 # Container Insights is left off: it bills per metric and adds little for one task.
 resource "aws_ecs_cluster" "this" {
   name = var.project
+
+  #checkov:skip=CKV_AWS_65:Container Insights bills per metric; ALB metrics cover this service
 
   setting {
     name  = "containerInsights"
@@ -127,6 +132,8 @@ resource "aws_ecs_service" "app" {
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = var.desired_count
+
+  #checkov:skip=CKV_AWS_333:No NAT gateway by design; the security group admits only the ALB
 
   capacity_provider_strategy {
     capacity_provider = local.capacity_provider

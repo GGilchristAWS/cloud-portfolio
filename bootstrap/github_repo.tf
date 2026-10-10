@@ -1,10 +1,21 @@
-# The repository itself is managed as code. Branch rulesets are added once the
-# CI workflows exist, so they can require those status checks.
+# The repository itself is managed as code, including the ruleset that makes
+# main reachable only through pull requests that pass CI.
+
+locals {
+  # Must match the job names in .github/workflows/ci.yml.
+  required_checks = [
+    "App: lint & test",
+    "Image: build & scan",
+    "IaC: fmt, lint, validate, scan",
+    "Terraform plan",
+  ]
+  github_actions_app_id = 15368
+}
 
 resource "github_repository" "this" {
   name        = var.repo_name
   description = "Cloud operations portfolio: containerized app on AWS, Terraform IaC, GitHub Actions CI/CD with OIDC."
-  visibility  = "public"
+  visibility  = "public" #checkov:skip=CKV_GIT_1:Public by design: this is a portfolio
   topics      = ["aws", "terraform", "github-actions", "devops", "cloud-engineering", "containers"]
 
   has_issues   = true
@@ -24,6 +35,47 @@ resource "github_repository" "this" {
     }
     secret_scanning_push_protection {
       status = "enabled"
+    }
+  }
+}
+
+# No bypass actors: the admin goes through pull requests too. Approvals are not
+# required because GitHub does not let a sole maintainer approve their own PR.
+resource "github_repository_ruleset" "main" {
+  name        = "protect-main"
+  repository  = github_repository.this.name
+  target      = "branch"
+  enforcement = "active"
+
+  conditions {
+    ref_name {
+      include = ["~DEFAULT_BRANCH"]
+      exclude = []
+    }
+  }
+
+  rules {
+    deletion                = true
+    non_fast_forward        = true
+    required_linear_history = true
+
+    pull_request {
+      required_approving_review_count   = 0
+      dismiss_stale_reviews_on_push     = true
+      required_review_thread_resolution = true
+    }
+
+    required_status_checks {
+      strict_required_status_checks_policy = true
+
+      dynamic "required_check" {
+        for_each = local.required_checks
+
+        content {
+          context        = required_check.value
+          integration_id = local.github_actions_app_id
+        }
+      }
     }
   }
 }

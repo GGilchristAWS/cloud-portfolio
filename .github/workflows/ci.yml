@@ -1,0 +1,173 @@
+# Pull request checks. Every job here is a required status check on main
+# (see bootstrap/github_repo.tf), so job names must stay in sync with it.
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TF_VERSION: 1.16.5
+  TF_IN_AUTOMATION: "1"
+  UV_VERSION: 0.13.0
+
+jobs:
+  app:
+    name: "App: lint & test"
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  image:
+    name: "Image: build & scan"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: cloud-portfolio:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Blocking: critical vulnerabilities that have a fix available.
+      - name: Scan image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.74.0
+          image-ref: cloud-portfolio:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # Informational: everything HIGH and above, for the job log.
+      - name: Report HIGH and CRITICAL findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.74.0
+          image-ref: cloud-portfolio:ci
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          skip-setup-trivy: true
+
+  iac:
+    name: "IaC: fmt, lint, validate, scan"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: v0.64.0
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: terraform validate
+        run: |
+          for stack in bootstrap infra; do
+            terraform -chdir=$stack init -backend=false -input=false
+            terraform -chdir=$stack validate
+          done
+
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # avoids rate limits when downloading the plugin
+        run: |
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"
+
+      # Accepted risks are skipped inline on each resource with a reason.
+      - name: checkov
+        run: >
+          uvx --from checkov==3.3.26 checkov
+          --directory .
+          --framework terraform github_actions
+          --skip-path app
+          --quiet --compact
+
+  plan:
+    name: "Terraform plan"
+    runs-on: ubuntu-24.04
+    # OIDC tokens are not issued to fork or Dependabot PRs. A skipped job
+    # satisfies the required check; the deploy job plans again before applying.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform plan (app stack)
+        working-directory: infra
+        env:
+          TF_VAR_image_tag: ${{ github.event.pull_request.head.sha }}
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color -out=tfplan
+          {
+            echo "### Terraform plan: app stack"
+            echo
+            echo "Image tag: \`$TF_VAR_image_tag\`"
+            echo
+            echo '<details><summary>Plan output</summary>'
+            echo
+            echo '```'
+            terraform show -no-color tfplan | head -c 60000
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"

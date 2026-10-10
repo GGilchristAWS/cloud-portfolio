@@ -1,0 +1,121 @@
+# Build, push and deploy main. Also used to bring the stack back up after the
+# nightly teardown (Actions tab -> Deploy -> Run workflow).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app/**
+      - infra/**
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shared with teardown.yml so the two never touch the app stack at once.
+concurrency:
+  group: app-stack
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: 1.16.5
+  TF_IN_AUTOMATION: "1"
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-24.04
+    # The deploy role trusts only this environment, which only main may use.
+    environment:
+      name: production
+      url: ${{ steps.apply.outputs.app_url }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      # Tags are immutable, so a re-run for the same commit reuses the image.
+      - name: Check for existing image
+        id: image
+        run: |
+          if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
+               --image-ids imageTag="$IMAGE_TAG" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.image.outputs.exists == 'false'
+
+      - name: Get build time
+        if: steps.image.outputs.exists == 'false'
+        id: meta
+        run: echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      # Single-manifest image: no attestations (see bootstrap/ecr.tf).
+      - name: Build and push image
+        if: steps.image.outputs.exists == 'false'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          build-args: |
+            GIT_SHA=${{ env.IMAGE_TAG }}
+            BUILD_TIME=${{ steps.meta.outputs.build_time }}
+            APP_VERSION=0.1.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform apply
+        id: apply
+        working-directory: infra
+        env:
+          TF_VAR_image_tag: ${{ env.IMAGE_TAG }}
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color -out=tfplan
+          terraform apply -input=false -no-color tfplan
+          echo "app_url=$(terraform output -raw app_url)" >> "$GITHUB_OUTPUT"
+
+      # The service only reaches steady state once the new task is healthy, but
+      # confirm the load balancer is actually serving this commit.
+      - name: Smoke test
+        env:
+          APP_URL: ${{ steps.apply.outputs.app_url }}
+        run: |
+          for attempt in $(seq 1 20); do
+            served=$(curl -fsS --max-time 5 "$APP_URL/version" | jq -r .commit || true)
+            if [ "$served" = "$IMAGE_TAG" ]; then
+              echo "Serving $IMAGE_TAG at $APP_URL"
+              echo "Deployed \`$IMAGE_TAG\` to $APP_URL" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $attempt: serving '${served:-nothing}', waiting..."
+            sleep 15
+          done
+          echo "::error::$APP_URL is not serving $IMAGE_TAG"
+          exit 1
