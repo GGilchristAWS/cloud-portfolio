@@ -8,6 +8,11 @@ locals {
 resource "aws_s3_bucket" "tfstate" {
   bucket = local.state_bucket_name
 
+  #checkov:skip=CKV_AWS_144:Single-region demo; versioning protects against accidental state loss
+  #checkov:skip=CKV_AWS_145:SSE-S3 instead of a KMS key to avoid $1/month per key
+  #checkov:skip=CKV_AWS_18:Access logging needs a second bucket; CloudTrail already records API access
+  #checkov:skip=CKV2_AWS_62:Nothing consumes bucket event notifications
+
   lifecycle {
     prevent_destroy = true
   }

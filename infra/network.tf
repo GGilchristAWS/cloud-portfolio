@@ -11,6 +11,8 @@ resource "aws_vpc" "this" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
+  #checkov:skip=CKV2_AWS_11:Flow logs bill per GB ingested; not needed for a single-service demo
+
   tags = { Name = var.project }
 }
 
@@ -69,6 +71,8 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
+
+  #checkov:skip=CKV_AWS_260:Public website; the ALB is the only internet-facing entry point
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_tasks" {

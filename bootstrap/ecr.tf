@@ -5,6 +5,9 @@ resource "aws_ecr_repository" "app" {
   name                 = var.project
   image_tag_mutability = "IMMUTABLE"
 
+  #checkov:skip=CKV_AWS_136:AES256 instead of a KMS key to avoid $1/month per key
+  #checkov:skip=CKV_AWS_163:Scan on push is configured at the registry level (aws_ecr_registry_scanning_configuration)
+
   encryption_configuration {
     encryption_type = "AES256"
   }

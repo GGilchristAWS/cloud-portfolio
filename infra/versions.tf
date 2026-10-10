@@ -35,4 +35,6 @@ data "aws_caller_identity" "current" {}
 
 data "aws_availability_zones" "available" {
   state = "available"
+
+  #checkov:skip=CKV_AWS_394:Only the first two zones are used; new zones sort after them
 }

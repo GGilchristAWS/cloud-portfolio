@@ -6,6 +6,8 @@
 
 resource "aws_sns_topic" "alerts" {
   name = "${var.project}-alerts"
+
+  #checkov:skip=CKV_AWS_26:CloudWatch cannot publish to the AWS managed key; see note above
 }
 
 resource "aws_sns_topic_subscription" "alerts_email" {
