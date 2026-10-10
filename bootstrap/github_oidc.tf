@@ -4,9 +4,16 @@
 #   github-actions-plan   - pull requests only; read-only AWS + state lock
 #   github-actions-deploy - "production" environment only (main branch); applies changes
 
+data "github_user" "owner" {
+  username = var.github_owner
+}
+
 locals {
-  repo_full_name = "${var.github_owner}/${var.repo_name}"
-  oidc_host      = "token.actions.githubusercontent.com"
+  oidc_host = "token.actions.githubusercontent.com"
+
+  # GitHub issues immutable subjects (owner@id/repo@id), so a deleted and
+  # re-created repository or account with the same name cannot assume these roles.
+  oidc_subject_prefix = "repo:${var.github_owner}@${data.github_user.owner.id}/${var.repo_name}@${github_repository.this.repo_id}"
 
   # The application stack keeps its state under this prefix. CI roles cannot
   # touch the bootstrap stack's state.
@@ -20,8 +27,8 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 data "aws_iam_policy_document" "github_trust" {
   for_each = {
-    plan   = "repo:${local.repo_full_name}:pull_request"
-    deploy = "repo:${local.repo_full_name}:environment:production"
+    plan   = "${local.oidc_subject_prefix}:pull_request"
+    deploy = "${local.oidc_subject_prefix}:environment:production"
   }
 
   statement {
