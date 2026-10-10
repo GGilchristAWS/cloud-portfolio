@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "hashicorp.terraform",
+    "ms-azuretools.vscode-containers",
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml",
+    "ms-python.python",
+    "amazonwebservices.aws-toolkit-vscode"
+  ]
+}
