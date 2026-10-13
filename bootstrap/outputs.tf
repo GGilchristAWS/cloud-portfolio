@@ -23,11 +23,6 @@ output "alerts_topic_arn" {
   value       = aws_sns_topic.alerts.arn
 }
 
-output "assistant_readonly_role_arn" {
-  description = "Read-only role for AI assistants and tooling (used by a CLI profile)."
-  value       = aws_iam_role.assistant_readonly.arn
-}
-
 output "name_servers" {
   description = "Set these as custom DNS name servers at the registrar (Namecheap)."
   value       = aws_route53_zone.main.name_servers
