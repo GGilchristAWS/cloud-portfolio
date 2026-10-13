@@ -1,0 +1,69 @@
+# Local copy of the observability stack, wired like the ECS monitoring task:
+# every monitoring container shares the collector's network namespace, so the
+# same configs (all on 127.0.0.1) work unchanged here and on Fargate.
+#
+#   docker compose -f obs/compose.yaml up --build
+#   app:     http://localhost:8000
+#   grafana: http://localhost:3000   (admin / admin)
+
+name: portfolio-obs
+
+x-config: &config
+  - ./config:/etc/obs:ro
+
+services:
+  app:
+    build: ../app
+    ports: ["8000:8000"]
+    environment:
+      OTEL_SDK_DISABLED: "false"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_METRIC_EXPORT_INTERVAL: "15000"
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local,service.version=local
+    depends_on: [otel-collector]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    command: ["--config=/etc/obs/collector/config.yaml"]
+    volumes: *config
+    ports:
+      - "3000:3000" # Grafana, published from the shared namespace
+      - "9090:9090" # Prometheus
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    network_mode: service:otel-collector
+    command:
+      - --config.file=/etc/obs/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.retention.time=2d
+    volumes: *config
+
+  loki:
+    image: grafana/loki:3.7.8
+    network_mode: service:otel-collector
+    command: ["-config.file=/etc/obs/loki/loki.yaml"]
+    volumes: *config
+
+  tempo:
+    image: grafana/tempo:3.1.0
+    network_mode: service:otel-collector
+    command: ["-target=all", "-config.file=/etc/obs/tempo/tempo.yaml"]
+    volumes: *config
+
+  grafana:
+    image: grafana/grafana:13.1.8
+    network_mode: service:otel-collector
+    volumes: *config
+    environment:
+      GF_PATHS_PROVISIONING: /etc/obs/grafana/provisioning
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/obs/grafana/dashboards/portfolio-overview.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"

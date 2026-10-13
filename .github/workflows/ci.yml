@@ -81,6 +81,39 @@ jobs:
           exit-code: "0"
           skip-setup-trivy: true
 
+      # Each tool checks its own config, with the same versions the monitoring
+      # task runs (infra/observability.tf), so a typo fails here, not on deploy.
+      - name: Validate observability configs
+        run: |
+          cfg="-v $PWD/obs/config:/etc/obs:ro"
+          docker run --rm $cfg --entrypoint promtool prom/prometheus:v3.15.0 \
+            check config /etc/obs/prometheus/prometheus.yml
+          docker run --rm $cfg otel/opentelemetry-collector-contrib:0.162.0 \
+            validate --config=/etc/obs/collector/config.yaml
+          docker run --rm $cfg grafana/loki:3.7.8 \
+            -config.file=/etc/obs/loki/loki.yaml -verify-config
+          for f in obs/config/grafana/dashboards/*.json; do jq empty "$f"; done
+
+      - name: Build observability config image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: obs
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: cloud-portfolio-obs-config:ci
+
+      - name: Scan observability config image (fail on fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.74.0
+          image-ref: cloud-portfolio-obs-config:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
   iac:
     name: "IaC: fmt, lint, validate, scan"
     runs-on: ubuntu-24.04

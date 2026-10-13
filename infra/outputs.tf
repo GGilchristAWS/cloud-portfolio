@@ -3,6 +3,11 @@ output "app_url" {
   value       = "https://${aws_route53_record.app.fqdn}"
 }
 
+output "grafana_url" {
+  description = "Public URL of the Grafana dashboards."
+  value       = "https://${aws_route53_record.grafana.fqdn}"
+}
+
 output "cluster_name" {
   description = "ECS cluster name."
   value       = aws_ecs_cluster.this.name

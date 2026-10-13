@@ -5,6 +5,17 @@
 locals {
   account_id = data.aws_caller_identity.current.account_id
   app_roles  = "arn:aws:iam::${local.account_id}:role/${var.project}-*"
+
+  # Managed policies the app stack may attach to its roles. Anything else
+  # would let the deploy role grant itself new permissions through a task.
+  attachable_policies = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+    "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess", # Grafana's CloudWatch data source
+    aws_iam_policy.grafana_secret_read.arn,
+  ]
+
+  # Names the app stack may point at its load balancer.
+  app_record_names = [lower(local.app_fqdn), "grafana.${lower(var.domain_name)}"]
 }
 
 resource "aws_iam_role_policy_attachment" "github_deploy_readonly" {
@@ -40,7 +51,7 @@ data "aws_iam_policy_document" "github_deploy_app" {
 
   statement {
     sid       = "LoadBalancingAndContainers"
-    actions   = ["elasticloadbalancing:*", "ecs:*"]
+    actions   = ["elasticloadbalancing:*", "ecs:*", "servicediscovery:*"]
     resources = ["*"]
 
     condition {
@@ -73,8 +84,8 @@ data "aws_iam_policy_document" "github_deploy_app" {
   }
 
   # IAM is the privilege-escalation path, so it is the tightest: only roles
-  # named <project>-*, only the ECS task execution policy may be attached,
-  # and roles may only be passed to ECS tasks.
+  # named <project>-*, only the policies in local.attachable_policies may be
+  # attached, and roles may only be passed to ECS tasks.
   statement {
     sid = "AppRoles"
     actions = [
@@ -92,7 +103,7 @@ data "aws_iam_policy_document" "github_deploy_app" {
     condition {
       test     = "ArnEquals"
       variable = "iam:PolicyARN"
-      values   = ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+      values   = local.attachable_policies
     }
   }
 
@@ -133,10 +144,10 @@ data "aws_iam_policy_document" "github_deploy_app" {
       "ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload", "ecr:PutImage",
     ]
-    resources = [aws_ecr_repository.app.arn]
+    resources = [aws_ecr_repository.app.arn, aws_ecr_repository.obs_config.arn]
   }
 
-  # The app stack creates and deletes only the app's alias record.
+  # The app stack creates and deletes only the app's and Grafana's alias records.
   statement {
     sid       = "AppDnsRecord"
     actions   = ["route53:ChangeResourceRecordSets"]
@@ -148,7 +159,7 @@ data "aws_iam_policy_document" "github_deploy_app" {
     condition {
       test     = "ForAllValues:StringEquals"
       variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
-      values   = [lower(local.app_fqdn)]
+      values   = local.app_record_names
     }
 
     condition {

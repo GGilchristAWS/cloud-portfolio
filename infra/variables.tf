@@ -45,15 +45,27 @@ variable "container_port" {
 }
 
 variable "task_cpu" {
-  description = "Fargate task CPU units (256 = 0.25 vCPU, the smallest size)."
+  description = "Fargate task CPU units for the app. 512 leaves room for the Service Connect proxy."
   type        = number
-  default     = 256
+  default     = 512
 }
 
 variable "task_memory" {
-  description = "Fargate task memory in MiB."
+  description = "Fargate task memory in MiB for the app."
   type        = number
-  default     = 512
+  default     = 1024
+}
+
+variable "monitoring_cpu" {
+  description = "Fargate task CPU units for the observability stack."
+  type        = number
+  default     = 1024
+}
+
+variable "monitoring_memory" {
+  description = "Fargate task memory in MiB for the observability stack."
+  type        = number
+  default     = 3072
 }
 
 variable "desired_count" {

@@ -8,6 +8,7 @@ on:
     paths:
       - app/**
       - infra/**
+      - obs/**
       - .github/workflows/deploy.yml
   workflow_dispatch:
 
@@ -85,6 +86,30 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Configs and dashboards for the monitoring task, tagged with the same SHA.
+      - name: Check for existing observability config image
+        id: obs_image
+        run: |
+          if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}-obs-config" \
+               --image-ids imageTag="$IMAGE_TAG" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.image.outputs.exists == 'true' && steps.obs_image.outputs.exists == 'false'
+
+      - name: Build and push observability config image
+        if: steps.obs_image.outputs.exists == 'false'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: obs
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}-obs-config:${{ env.IMAGE_TAG }}
+
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
@@ -100,6 +125,7 @@ jobs:
           terraform plan -input=false -no-color -out=tfplan
           terraform apply -input=false -no-color tfplan
           echo "app_url=$(terraform output -raw app_url)" >> "$GITHUB_OUTPUT"
+          echo "grafana_url=$(terraform output -raw grafana_url)" >> "$GITHUB_OUTPUT"
 
       # The service only reaches steady state once the new task is healthy, but
       # confirm the load balancer is actually serving this commit.
@@ -118,4 +144,20 @@ jobs:
             sleep 15
           done
           echo "::error::$APP_URL is not serving $IMAGE_TAG"
+          exit 1
+
+      - name: Smoke test Grafana
+        env:
+          GRAFANA_URL: ${{ steps.apply.outputs.grafana_url }}
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 5 "$GRAFANA_URL/api/health" > /dev/null; then
+              echo "Grafana is up at $GRAFANA_URL"
+              echo "Dashboards: $GRAFANA_URL" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $attempt: Grafana not ready, waiting..."
+            sleep 15
+          done
+          echo "::error::Grafana is not healthy at $GRAFANA_URL"
           exit 1

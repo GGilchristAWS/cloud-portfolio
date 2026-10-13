@@ -1,0 +1,40 @@
+# Single-binary Loki on local disk. The task is torn down nightly, so logs
+# live as long as the stack does; CloudWatch Logs keeps the durable copy.
+# OTLP logs arrive at /otlp from the collector.
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9097 # 9095 is Tempo's in the shared task namespace
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  allow_structured_metadata: true
+  volume_enabled: true
+  retention_period: 168h
+
+analytics:
+  reporting_enabled: false

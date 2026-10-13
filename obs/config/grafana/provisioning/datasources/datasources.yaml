@@ -1,0 +1,62 @@
+# Data sources, cross-linked so a viewer can move between signals:
+#   latency graph exemplar -> trace (Prometheus -> Tempo)
+#   trace span             -> its logs and metrics (Tempo -> Loki / Prometheus)
+#   log line               -> its trace (Loki -> Tempo)
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://127.0.0.1:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+          urlDisplayLabel: View trace
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://127.0.0.1:3200
+    editable: false
+    jsonData:
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate
+            query: sum(rate(traces_spanmetrics_calls_total{$$__tags}[1m]))

@@ -19,10 +19,12 @@ BUILD_INFO = {
 }
 
 REPO_URL = "https://github.com/GGilchristAWS/cloud-portfolio"
+GRAFANA_URL = "https://grafana.portfolio.geoffgilchrist.com"
 
 PACKAGE_DIR = Path(__file__).parent
 
 templates = Jinja2Templates(directory=PACKAGE_DIR / "templates")
+templates.env.globals.update(repo_url=REPO_URL, grafana_url=GRAFANA_URL)
 app = FastAPI(title="cloud-portfolio", docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -59,7 +61,7 @@ def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"page": "home", "build": BUILD_INFO, "runtime": runtime_info(), "repo_url": REPO_URL},
+        {"page": "home", "build": BUILD_INFO, "runtime": runtime_info()},
     )
 
 
@@ -68,7 +70,7 @@ def resume_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "resume.html",
-        {"page": "resume", "resume": resume(), "repo_url": REPO_URL},
+        {"page": "resume", "resume": resume()},
     )
 
 
