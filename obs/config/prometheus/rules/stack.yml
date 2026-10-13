@@ -17,6 +17,35 @@ groups:
       - record: portfolio:latency:p95_1m
         expr: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app"}[1m])))
 
+  # The same signals split by traffic: "synthetic" is the load-test
+  # workflow, which only calls /api/simulate; everything else is "real".
+  # The SLO and headline stats count both, so load tests can fire alerts.
+  - name: portfolio-traffic
+    interval: 15s
+    rules:
+      - record: portfolio:requests_by_traffic:rate1m
+        expr: |
+          sum by (traffic) (label_replace(label_replace(
+            rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[1m]),
+            "traffic", "real", "", ""), "traffic", "synthetic", "http_route", "/api/simulate"))
+
+      - record: portfolio:errors_by_traffic:ratio1m
+        expr: |
+          (
+            sum by (traffic) (label_replace(label_replace(
+              rate(http_server_request_duration_seconds_count{service_name="portfolio-app", http_response_status_code=~"5.."}[1m]),
+              "traffic", "real", "", ""), "traffic", "synthetic", "http_route", "/api/simulate"))
+            or portfolio:requests_by_traffic:rate1m * 0
+          )
+            /
+          clamp_min(portfolio:requests_by_traffic:rate1m, 1e-9)
+
+      - record: portfolio:latency_by_traffic:p95_1m
+        expr: |
+          histogram_quantile(0.95, sum by (le, traffic) (label_replace(label_replace(
+            rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app"}[1m]),
+            "traffic", "real", "", ""), "traffic", "synthetic", "http_route", "/api/simulate")))
+
   # Per-task resource use as a share of what the task reserved, from the
   # agent's ECS task stats. CPU is derived from the cumulative CPU-time
   # counter rather than the receiver's ecs.task.cpu.utilized, which doesn't

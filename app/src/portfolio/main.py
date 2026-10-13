@@ -1,15 +1,21 @@
 """Portfolio web app served from ECS Fargate."""
 
+import asyncio
 import json
+import logging
 import os
+import random
+import secrets
 import tomllib
 import urllib.request
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from opentelemetry import metrics, trace
 
 # Baked into the image at build time by CI.
 BUILD_INFO = {
@@ -82,3 +88,55 @@ def health() -> dict[str, str]:
 @app.get("/version")
 def version() -> dict[str, str]:
     return BUILD_INFO
+
+
+# --- Load testing ------------------------------------------------------------
+# /api/simulate answers with a chosen latency and error rate, so the k6
+# scenarios in loadtest/ can show the dashboards and alerts reacting. The real
+# pages are too fast and reliable to ever trip them. It's public, so it only
+# answers callers holding the token (a GitHub Actions secret), and its
+# parameters are capped. Its traffic is told apart from real traffic by its
+# http_route label.
+
+LOAD_TEST_SCENARIOS = frozenset({"smoke", "ramp", "spike", "soak"})
+
+logger = logging.getLogger("portfolio")
+load_test_requests = metrics.get_meter("portfolio").create_counter(
+    "load_test.requests", description="Requests to /api/simulate, by load-test scenario."
+)
+
+
+def require_load_test_token(
+    x_load_test_token: Annotated[str | None, Header()] = None,
+) -> None:
+    """Hide the endpoint (404) unless the caller presents the load-test token.
+
+    Runs as a dependency, before query validation, so a caller without the
+    token can't learn that the endpoint exists from a 422.
+    """
+    expected = os.getenv("LOAD_TEST_TOKEN")
+    if not (expected and x_load_test_token and secrets.compare_digest(x_load_test_token, expected)):
+        raise HTTPException(status_code=404)
+
+
+@app.get("/api/simulate", dependencies=[Depends(require_load_test_token)])
+async def simulate(
+    latency_ms: Annotated[int, Query(ge=0, le=2000)] = 0,
+    jitter_ms: Annotated[int, Query(ge=0, le=1000)] = 0,
+    error_rate: Annotated[float, Query(ge=0, le=0.5)] = 0.0,
+    x_load_test_scenario: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
+    # Only known names become a metric label; anything else would let a caller
+    # create unbounded label values (cardinality) in Prometheus.
+    scenario = x_load_test_scenario if x_load_test_scenario in LOAD_TEST_SCENARIOS else "other"
+    trace.get_current_span().set_attribute("load_test.scenario", scenario)
+    load_test_requests.add(1, {"scenario": scenario})
+
+    # Not cryptographic: just shaping synthetic traffic.
+    delay_ms = max(0.0, latency_ms + random.uniform(-jitter_ms, jitter_ms))  # noqa: S311
+    await asyncio.sleep(delay_ms / 1000)  # async, so waiting holds no worker
+
+    if random.random() < error_rate:  # noqa: S311
+        logger.warning("Simulated failure for load-test scenario %s", scenario)
+        return JSONResponse({"error": "simulated failure", "scenario": scenario}, status_code=500)
+    return JSONResponse({"scenario": scenario, "delay_ms": round(delay_ms)})

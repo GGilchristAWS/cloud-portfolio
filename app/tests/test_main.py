@@ -54,3 +54,40 @@ def test_resume_renders_every_job() -> None:
 def test_api_docs_are_disabled() -> None:
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
+
+
+TOKEN = {"X-Load-Test-Token": "test-token"}
+
+
+def test_simulate_is_hidden_without_a_token(monkeypatch) -> None:
+    monkeypatch.delenv("LOAD_TEST_TOKEN", raising=False)
+    assert client.get("/api/simulate", headers=TOKEN).status_code == 404
+
+
+def test_simulate_rejects_a_wrong_token_before_validating(monkeypatch) -> None:
+    monkeypatch.setenv("LOAD_TEST_TOKEN", "test-token")
+    wrong = {"X-Load-Test-Token": "nope"}
+    assert client.get("/api/simulate?latency_ms=999999", headers=wrong).status_code == 404
+
+
+def test_simulate_caps_its_parameters(monkeypatch) -> None:
+    monkeypatch.setenv("LOAD_TEST_TOKEN", "test-token")
+    for query in ("latency_ms=2001", "jitter_ms=1001", "error_rate=0.6", "latency_ms=-1"):
+        assert client.get(f"/api/simulate?{query}", headers=TOKEN).status_code == 422, query
+
+
+def test_simulate_succeeds_or_fails_as_asked(monkeypatch) -> None:
+    monkeypatch.setenv("LOAD_TEST_TOKEN", "test-token")
+    headers = {**TOKEN, "X-Load-Test-Scenario": "spike"}
+    ok = client.get("/api/simulate?latency_ms=5", headers=headers)
+    assert ok.status_code == 200
+    assert ok.json() == {"scenario": "spike", "delay_ms": 5}
+
+    monkeypatch.setattr("portfolio.main.random.random", lambda: 0.0)
+    assert client.get("/api/simulate?error_rate=0.5", headers=headers).status_code == 500
+
+
+def test_simulate_buckets_unknown_scenarios(monkeypatch) -> None:
+    monkeypatch.setenv("LOAD_TEST_TOKEN", "test-token")
+    headers = {**TOKEN, "X-Load-Test-Scenario": "made-up-name"}
+    assert client.get("/api/simulate", headers=headers).json()["scenario"] == "other"
