@@ -10,6 +10,18 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "domain_name" {
+  description = "Domain whose Route 53 zone and certificate the bootstrap stack manages."
+  type        = string
+  default     = "mirkwood.xyz"
+}
+
+variable "app_subdomain" {
+  description = "Subdomain the app is served on. Must match the bootstrap stack."
+  type        = string
+  default     = "portfolio"
+}
+
 variable "image_tag" {
   description = "Tag of the image in ECR to deploy (the git commit SHA)."
   type        = string

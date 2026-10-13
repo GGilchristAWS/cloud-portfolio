@@ -11,15 +11,18 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 ## Architecture
 
 ```
-Internet ──HTTP:80──▶ ALB (2 public subnets) ──:8000──▶ ECS Fargate Spot task
-                                                          │  pulls image from ECR
-                                                          └─ logs to CloudWatch
+https://portfolio.mirkwood.xyz
+   │  Route 53 alias
+   ▼
+ALB ──:443 TLS 1.3/1.2 (ACM cert, HSTS)──▶ ECS Fargate Spot task :8000
+    └─:80 ──301──▶ https                     │  pulls image from ECR
+                                             └─ logs to CloudWatch
 ```
 
 | Path | Lifecycle | Contents |
 |---|---|---|
-| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, repository settings and ruleset |
-| `infra/` | Ephemeral (~$1/day while up), applied by CI | VPC, ALB, ECS cluster/service/task, log group, alarms |
+| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX), ACM certificate, read-only assistant role, repository settings and ruleset |
+| `infra/` | Ephemeral (~$1/day while up), applied by CI | VPC, ALB (HTTPS + redirect), app DNS alias, ECS cluster/service/task, log group, alarms |
 | `app/` | | FastAPI app, Dockerfile, tests |
 
 ## Pipeline
@@ -49,4 +52,4 @@ terraform apply tfplan
 
 ## Accepted risks
 
-Checkov findings that are deliberate for a low-cost demo are skipped inline on each resource with the reason. In summary: no HTTPS (no domain), no WAF, no KMS customer-managed keys, no ALB access logs or VPC flow logs, short log retention, and tasks with public IPs instead of a NAT gateway (inbound restricted to the ALB security group).
+Checkov findings that are deliberate for a low-cost demo are skipped inline on each resource with the reason. In summary: no WAF, no DNSSEC, no KMS customer-managed keys, no ALB access logs or VPC flow logs, short log retention, and tasks with public IPs instead of a NAT gateway (inbound restricted to the ALB security group).

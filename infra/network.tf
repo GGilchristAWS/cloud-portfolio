@@ -60,19 +60,28 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_security_group" "alb" {
   name        = "${var.project}-alb"
-  description = "Public HTTP to the load balancer"
+  description = "Public HTTP and HTTPS to the load balancer"
   vpc_id      = aws_vpc.this.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTPS from the internet"
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
-  description       = "HTTP from the internet"
+  description       = "HTTP from the internet (redirected to HTTPS)"
   cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
 
-  #checkov:skip=CKV_AWS_260:Public website; the ALB is the only internet-facing entry point
+  #checkov:skip=CKV_AWS_260:Port 80 only serves a redirect to HTTPS
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_tasks" {
