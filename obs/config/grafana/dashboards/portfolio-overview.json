@@ -524,13 +524,314 @@
     },
     {
       "type": "row",
-      "title": "Traffic and latency",
+      "title": "ECS tasks",
       "collapsed": false,
       "panels": [],
       "id": 11,
       "gridPos": {
         "x": 0,
         "y": 16,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Task CPU (share of reserved)",
+      "description": "CPU each Fargate task is using as a share of the CPU it reserved (app tasks: 0.5 vCPU; monitoring: 1 vCPU). Matches CloudWatch's ECS CPUUtilization.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(ecs_task:cpu:ratio_of_reserved, \"task\", \"$1\", \"aws_ecs_task_id\", \"(.{8}).*\")",
+          "legendFormat": "{{aws_ecs_service_name}} \u00b7 {{task}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3fb950",
+                "value": null
+              },
+              {
+                "color": "#d29922",
+                "value": 0.7
+              },
+              {
+                "color": "#f85149",
+                "value": 0.85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Task memory (share of reserved)",
+      "description": "Memory each task is using as a share of its reservation. An alert fires above 85%.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(ecs_task:memory:ratio_of_reserved, \"task\", \"$1\", \"aws_ecs_task_id\", \"(.{8}).*\")",
+          "legendFormat": "{{aws_ecs_service_name}} \u00b7 {{task}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3fb950",
+                "value": null
+              },
+              {
+                "color": "#d29922",
+                "value": 0.7
+              },
+              {
+                "color": "#f85149",
+                "value": 0.85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Memory by container",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Every container in both services, including the OpenTelemetry agent sidecars and the Service Connect proxies ECS adds.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (aws_ecs_service_name, name) (label_replace(container_memory_utilized_MiB, \"name\", \"service-connect proxy\", \"container_name\", \"ecs-service-connect-.*\") or label_replace(container_memory_utilized_MiB{container_name!~\"ecs-service-connect-.*\"}, \"name\", \"$1\", \"container_name\", \"(.*)\"))",
+          "legendFormat": "{{aws_ecs_service_name}} / {{name}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "min": 0,
+          "color": {
+            "mode": "continuous-BlYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Task network",
+      "description": "Bytes per second in (above the axis) and out (below) for each task.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(sum by (aws_ecs_service_name, aws_ecs_task_id) (ecs_task_network_rate_rx_Bytes_per_Second), \"task\", \"$1\", \"aws_ecs_task_id\", \"(.{8}).*\")",
+          "legendFormat": "{{aws_ecs_service_name}} \u00b7 {{task}} in",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(-sum by (aws_ecs_service_name, aws_ecs_task_id) (ecs_task_network_rate_tx_Bytes_per_Second), \"task\", \"$1\", \"aws_ecs_task_id\", \"(.{8}).*\")",
+          "legendFormat": "{{aws_ecs_service_name}} \u00b7 {{task}} out",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 15,
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic and latency",
+      "collapsed": false,
+      "panels": [],
+      "id": 16,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
         "w": 24,
         "h": 1
       }
@@ -590,10 +891,10 @@
         },
         "overrides": []
       },
-      "id": 12,
+      "id": 17,
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 35,
         "w": 12,
         "h": 8
       }
@@ -718,10 +1019,10 @@
           }
         ]
       },
-      "id": 13,
+      "id": 18,
       "gridPos": {
         "x": 12,
-        "y": 17,
+        "y": 35,
         "w": 12,
         "h": 8
       }
@@ -770,10 +1071,10 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 14,
+      "id": 19,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 43,
         "w": 12,
         "h": 8
       }
@@ -891,10 +1192,10 @@
           }
         ]
       },
-      "id": 15,
+      "id": 20,
       "gridPos": {
         "x": 12,
-        "y": 25,
+        "y": 43,
         "w": 12,
         "h": 8
       }
@@ -904,10 +1205,10 @@
       "title": "Traces and logs",
       "collapsed": false,
       "panels": [],
-      "id": 16,
+      "id": 21,
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 51,
         "w": 24,
         "h": 1
       }
@@ -941,10 +1242,10 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 17,
+      "id": 22,
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 52,
         "w": 12,
         "h": 10
       }
@@ -974,10 +1275,10 @@
         "enableLogDetails": true,
         "dedupStrategy": "none"
       },
-      "id": 18,
+      "id": 23,
       "gridPos": {
         "x": 12,
-        "y": 34,
+        "y": 52,
         "w": 12,
         "h": 10
       }
@@ -987,10 +1288,10 @@
       "title": "AWS view (CloudWatch)",
       "collapsed": false,
       "panels": [],
-      "id": 19,
+      "id": 24,
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 62,
         "w": 24,
         "h": 1
       }
@@ -1065,10 +1366,19 @@
         },
         "overrides": []
       },
-      "id": 20,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 25,
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 63,
         "w": 8,
         "h": 7
       }
@@ -1143,10 +1453,19 @@
         },
         "overrides": []
       },
-      "id": 21,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 26,
       "gridPos": {
         "x": 8,
-        "y": 45,
+        "y": 63,
         "w": 8,
         "h": 7
       }
@@ -1221,10 +1540,19 @@
         },
         "overrides": []
       },
-      "id": 22,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 27,
       "gridPos": {
         "x": 16,
-        "y": 45,
+        "y": 63,
         "w": 8,
         "h": 7
       }
@@ -1299,10 +1627,19 @@
         },
         "overrides": []
       },
-      "id": 23,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 28,
       "gridPos": {
         "x": 0,
-        "y": 52,
+        "y": 70,
         "w": 8,
         "h": 7
       }
@@ -1377,10 +1714,19 @@
         },
         "overrides": []
       },
-      "id": 24,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 29,
       "gridPos": {
         "x": 8,
-        "y": 52,
+        "y": 70,
         "w": 8,
         "h": 7
       }
@@ -1500,10 +1846,19 @@
         },
         "overrides": []
       },
-      "id": 25,
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "targetgroup/cloud-portfolio-([a-z]+)/.*",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "id": 30,
       "gridPos": {
         "x": 16,
-        "y": 52,
+        "y": 70,
         "w": 8,
         "h": 7
       }
@@ -1513,10 +1868,10 @@
       "title": "Monitoring stack health",
       "collapsed": false,
       "panels": [],
-      "id": 26,
+      "id": 31,
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 77,
         "w": 24,
         "h": 1
       }
@@ -1582,10 +1937,10 @@
         },
         "overrides": []
       },
-      "id": 27,
+      "id": 32,
       "gridPos": {
         "x": 0,
-        "y": 60,
+        "y": 78,
         "w": 8,
         "h": 7
       }
@@ -1685,10 +2040,10 @@
           }
         ]
       },
-      "id": 28,
+      "id": 33,
       "gridPos": {
         "x": 8,
-        "y": 60,
+        "y": 78,
         "w": 8,
         "h": 7
       }
@@ -1745,10 +2100,10 @@
         },
         "overrides": []
       },
-      "id": 29,
+      "id": 34,
       "gridPos": {
         "x": 16,
-        "y": 60,
+        "y": 78,
         "w": 8,
         "h": 7
       }
@@ -1801,10 +2156,10 @@
         },
         "overrides": []
       },
-      "id": 30,
+      "id": 35,
       "gridPos": {
         "x": 0,
-        "y": 67,
+        "y": 85,
         "w": 6,
         "h": 4
       }
@@ -1858,10 +2213,10 @@
         },
         "overrides": []
       },
-      "id": 31,
+      "id": 36,
       "gridPos": {
         "x": 6,
-        "y": 67,
+        "y": 85,
         "w": 6,
         "h": 4
       }
@@ -1915,10 +2270,10 @@
         },
         "overrides": []
       },
-      "id": 32,
+      "id": 37,
       "gridPos": {
         "x": 12,
-        "y": 67,
+        "y": 85,
         "w": 6,
         "h": 4
       }
@@ -1972,10 +2327,10 @@
         },
         "overrides": []
       },
-      "id": 33,
+      "id": 38,
       "gridPos": {
         "x": 18,
-        "y": 67,
+        "y": 85,
         "w": 6,
         "h": 4
       }

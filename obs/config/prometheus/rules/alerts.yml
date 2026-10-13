@@ -52,3 +52,19 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: A collector can't deliver telemetry to its backend.
+
+  - name: ecs-tasks
+    rules:
+      - alert: TaskMemoryHigh
+        expr: ecs_task:memory:ratio_of_reserved > 0.85
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.aws_ecs_service_name }} task {{ $labels.aws_ecs_task_id }} is using over 85% of its memory."
+
+      - alert: TaskCpuSaturated
+        expr: ecs_task:cpu:ratio_of_reserved > 0.9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.aws_ecs_service_name }} task {{ $labels.aws_ecs_task_id }} has used over 90% of its CPU for 10 minutes."

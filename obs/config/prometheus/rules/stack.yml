@@ -16,3 +16,22 @@ groups:
 
       - record: portfolio:latency:p95_1m
         expr: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app"}[1m])))
+
+  # Per-task resource use as a share of what the task reserved, from the
+  # agent's ECS task stats. CPU is derived from the cumulative CPU-time
+  # counter rather than the receiver's ecs.task.cpu.utilized, which doesn't
+  # match CloudWatch's CPUUtilization; this does.
+  - name: ecs-tasks
+    interval: 15s
+    rules:
+      - record: ecs_task:cpu:ratio_of_reserved
+        expr: |
+          sum by (aws_ecs_service_name, aws_ecs_task_id) (rate(ecs_task_cpu_usage_total_Nanoseconds[1m])) / 1e9
+            /
+          (sum by (aws_ecs_service_name, aws_ecs_task_id) (ecs_task_cpu_reserved_None) / 1024)
+
+      - record: ecs_task:memory:ratio_of_reserved
+        expr: |
+          sum by (aws_ecs_service_name, aws_ecs_task_id) (ecs_task_memory_utilized_MiB)
+            /
+          sum by (aws_ecs_service_name, aws_ecs_task_id) (ecs_task_memory_reserved_MiB)
