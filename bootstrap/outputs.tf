@@ -24,7 +24,7 @@ output "alerts_topic_arn" {
 }
 
 output "name_servers" {
-  description = "Set these as custom DNS name servers at the registrar (Namecheap)."
+  description = "Name servers for the NS delegation record in the parent zone (aws-org management stack)."
   value       = aws_route53_zone.main.name_servers
 }
 

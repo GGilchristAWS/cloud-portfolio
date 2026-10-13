@@ -4,7 +4,8 @@
 # record (see bootstrap/deploy_permissions.tf).
 
 locals {
-  app_fqdn = "${var.app_subdomain}.${var.domain_name}"
+  # An empty subdomain serves the app at the zone apex.
+  app_fqdn = var.app_subdomain == "" ? var.domain_name : "${var.app_subdomain}.${var.domain_name}"
 }
 
 data "aws_route53_zone" "main" {

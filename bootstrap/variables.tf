@@ -5,15 +5,15 @@ variable "project" {
 }
 
 variable "domain_name" {
-  description = "Registered domain (registrar: Namecheap) whose DNS is hosted in Route 53."
+  description = "Route 53 zone the app is served from, delegated from geoffgilchrist.com (aws-org repo)."
   type        = string
-  default     = "mirkwood.xyz"
+  default     = "portfolio.geoffgilchrist.com"
 }
 
 variable "app_subdomain" {
-  description = "Subdomain the app is served on. Must match the app stack."
+  description = "Subdomain the app is served on; empty serves it at the zone apex. Must match the app stack."
   type        = string
-  default     = "portfolio"
+  default     = ""
 }
 
 variable "aws_region" {

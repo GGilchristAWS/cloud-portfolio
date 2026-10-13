@@ -1,5 +1,5 @@
 # This domain neither sends nor receives email. These records say so
-# explicitly, so receivers reject mail forging a mirkwood.xyz sender and
+# explicitly, so receivers reject mail forging a sender in this zone and
 # senders fail fast instead of retrying. Relax them before adding a mail
 # provider (e.g. SES): MX, SPF include, DKIM keys, then DMARC.
 #

@@ -2,11 +2,13 @@
 # new name servers (breaking the registrar delegation), and certificates are
 # slow to issue. Only the app's alias record lives in the ephemeral app stack.
 #
-# Delegation is manual: the registrar (Namecheap) must use the name servers in
-# the name_servers output.
+# The zone is a subdomain of geoffgilchrist.com, whose zone lives in the
+# organization's management account (aws-org repo). An NS record there delegates
+# this name to the name servers in the name_servers output.
 
 locals {
-  app_fqdn = "${var.app_subdomain}.${var.domain_name}"
+  # An empty subdomain serves the app at the zone apex.
+  app_fqdn = var.app_subdomain == "" ? var.domain_name : "${var.app_subdomain}.${var.domain_name}"
 }
 
 resource "aws_route53_zone" "main" {
