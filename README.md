@@ -11,7 +11,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 ## Architecture
 
 ```
-https://portfolio.mirkwood.xyz
+https://portfolio.geoffgilchrist.com
    │  Route 53 alias
    ▼
 ALB ──:443 TLS 1.3/1.2 (ACM cert, HSTS)──▶ ECS Fargate Spot task :8000
