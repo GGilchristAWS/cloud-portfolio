@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Resume · {{ resume.profile.name }}{% endblock %}
+{% block styles %}
+    .contact { margin: 8px 0 0; color: var(--muted); }
+    .contact a + a::before { content: "·"; margin: 0 8px; color: var(--muted); }
+    .print-hint { margin-top: 12px; font-size: 0.9rem; color: var(--muted); }
+    .job { margin-bottom: 20px; break-inside: avoid; }
+    .job-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 16px; }
+    .job-head h3 { margin: 0; font-size: 1rem; }
+    .job-head span { color: var(--muted); font-size: 0.95rem; }
+    .job ul { margin: 6px 0 0; padding-left: 20px; }
+    .job li { margin-bottom: 2px; }
+    .engagements { margin-top: 6px; }
+    .engagements strong { font-weight: 600; }
+    .skills { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+    .skills dd { font-family: inherit; }
+    @media (max-width: 600px) { .skills { grid-template-columns: 1fr; } .skills dd { margin-bottom: 8px; } }
+{% endblock %}
+{% block content %}
+  {% set p = resume.profile %}
+  <h1>{{ p.name }}</h1>
+  <p class="lede">{{ p.title }}</p>
+  <p class="contact"><a href="mailto:{{ p.email }}">{{ p.email }}</a><a href="{{ p.linkedin }}">LinkedIn</a></p>
+  <p class="print-hint no-print">Need a PDF? Print this page and choose "Save as PDF".</p>
+
+  <h2>Summary</h2>
+  <p>{{ p.summary }}</p>
+
+  <h2>Experience</h2>
+  {% for job in resume.experience %}
+  <section class="job">
+    <div class="job-head">
+      <h3>{{ job.title }} · {{ job.company }}</h3>
+      <span>{{ job.dates }}</span>
+    </div>
+    <ul>
+      {% for item in job.highlights %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+    {% if job.engagements %}
+    <ul class="engagements">
+      {% for e in job.engagements %}<li><strong>{{ e.who }}:</strong> {{ e.what }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  <h2>Technical skills</h2>
+  <dl class="skills">
+    {% for group in resume.skills %}
+    <dt>{{ group.area }}</dt><dd>{{ group["items"] | join(", ") }}</dd>
+    {% endfor %}
+  </dl>
+
+  <h2>Certifications</h2>
+  <ul>
+    {% for cert in resume.certifications %}<li>{{ cert.name }}</li>{% endfor %}
+  </ul>
+{% endblock %}

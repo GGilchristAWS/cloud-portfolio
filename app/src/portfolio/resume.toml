@@ -1,0 +1,110 @@
+# Resume content for /resume. Edit here; the page and its print layout are
+# rendered from this file. Customer names stay out of this public repository:
+# describe engagements by industry and impact instead.
+
+[profile]
+name = "Geoffrey Gilchrist"
+title = "Senior Cloud Infrastructure Engineer · Cloud Operations · Solutions Architect"
+email = "geomod87@gmail.com"
+linkedin = "https://www.linkedin.com/in/geoffrey-gilchrist"
+summary = """
+Cloud infrastructure engineer with 15+ years of experience designing, automating, and \
+supporting enterprise infrastructure across AWS, Azure, and hybrid environments. I enjoy \
+solving complex technical problems, improving reliability through automation, and helping \
+teams build secure, scalable systems."""
+
+[[experience]]
+title = "Cloud Support Engineer"
+company = "Amazon Web Services"
+dates = "2022–Present"
+highlights = [
+  "Provide technical leadership and operational guidance for AWS Enterprise Support customers running large-scale production workloads.",
+  "Partner with AWS service teams to identify product defects and improve EC2, Systems Manager, Security Hub, and Image Builder.",
+  "Serve as a trusted technical advisor for Fortune 500 and enterprise customers operating business-critical AWS environments.",
+  "Developed and deployed internal security software distributed across thousands of AWS-managed endpoints, improving the organization's overall security posture.",
+  "Selected as Voice of the Engineer (VOTE) Lead and member of the Engineer Advisory Board, strengthening collaboration between engineering leadership and frontline engineers.",
+  "Mentored newly hired engineers and engineers transitioning into AWS Escalation/Support Operations.",
+]
+engagements = [
+  { who = "Major US airline", what = "Assisted recovery during the global CrowdStrike outage, helping restore critical production infrastructure." },
+  { who = "Major US airline", what = "Guided recovery during a regional AWS service disruption affecting production workloads." },
+  { who = "US federal science mission", what = "Advised engineering teams on cryptography vulnerability remediation and secure infrastructure implementation." },
+  { who = "Two large US financial institutions", what = "Supported planning and execution of large-scale AWS cloud migrations." },
+]
+
+[[experience]]
+title = "Systems Engineer"
+company = "Digimarc"
+dates = "2019–2022"
+highlights = [
+  "Managed Windows Failover Clusters, Rubrik disaster recovery, and Linux patching and maintenance.",
+  "Designed Azure Stack HCI clusters and hybrid infrastructure.",
+  "Implemented an organization-wide observability platform (LogicMonitor, Datadog) for better insight into running workloads.",
+  "Extended on-premises services with Azure App Proxy and SSO/MFA, enabling remote work without a VPN.",
+]
+
+[[experience]]
+title = "Systems Administrator"
+company = "Milestone Systems"
+dates = "2015–2019"
+highlights = [
+  "Managed VMware, Hyper-V, SAN storage, networking, Office 365, Active Directory, and enterprise backups.",
+  "Led disaster recovery and infrastructure modernization initiatives.",
+]
+
+[[experience]]
+title = "Systems Administrator"
+company = "Building Champions"
+dates = "2013–2015"
+highlights = [
+  "Managed Windows Server, Hyper-V, SQL Server, Exchange, and networking.",
+]
+
+[[experience]]
+title = "Enterprise Sales Engineer"
+company = "Symantec"
+dates = "2009–2010"
+highlights = [
+  "Delivered enterprise solution demonstrations, proof-of-concept implementations, and technical consulting.",
+]
+
+[[skills]]
+area = "Cloud Platforms"
+items = ["AWS", "Azure", "Hybrid Cloud"]
+
+[[skills]]
+area = "AWS Services"
+items = [
+  "EC2", "ECS Fargate", "ECR", "IAM", "IAM Identity Center", "Organizations & SCPs",
+  "ELB/ALB", "EBS", "S3", "Route 53", "ACM", "Systems Manager (SSM)",
+  "CloudFormation", "CloudWatch", "Migration Services",
+]
+
+[[skills]]
+area = "Automation & IaC"
+items = ["Terraform", "CloudFormation", "GitHub Actions", "CI/CD", "Docker", "PowerShell", "Python (FastAPI)"]
+
+[[skills]]
+area = "Infrastructure"
+items = ["Windows Server", "Linux", "VMware", "Hyper-V", "Azure Stack HCI"]
+
+[[skills]]
+area = "Monitoring & Observability"
+items = ["CloudWatch", "Grafana", "Prometheus", "LogicMonitor", "Datadog"]
+
+[[skills]]
+area = "Identity & Security"
+items = ["IAM", "OIDC federation", "Active Directory", "LDAP", "SSO", "MFA"]
+
+[[skills]]
+area = "Networking & Resiliency"
+items = ["DNS", "Firewalls", "Load Balancing", "Disaster Recovery", "High Availability"]
+
+[[certifications]]
+name = "MCSA: Windows Server 2012"
+
+[[certifications]]
+name = "Microsoft Specialist: Hyper-V & System Center"
+
+[[certifications]]
+name = "Milestone XProtect Advanced Certification"
