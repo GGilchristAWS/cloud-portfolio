@@ -58,9 +58,11 @@ resource "aws_route_table_association" "public" {
 
 # --- Security groups -------------------------------------------------------
 
+# The description predates HTTPS; changing it forces replacement, which fails
+# with DependencyViolation while the running ALB still uses the group.
 resource "aws_security_group" "alb" {
   name        = "${var.project}-alb"
-  description = "Public HTTP and HTTPS to the load balancer"
+  description = "Public HTTP to the load balancer"
   vpc_id      = aws_vpc.this.id
 }
 
