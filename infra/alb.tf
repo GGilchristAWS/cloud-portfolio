@@ -1,4 +1,5 @@
-# HTTP only: HTTPS needs a domain and an ACM certificate (a later add-on).
+# HTTPS on 443 with the bootstrap stack's ACM certificate; port 80 only
+# redirects to HTTPS. TLS terminates here; ALB-to-task traffic stays in the VPC.
 
 resource "aws_lb" "this" {
   name               = var.project
@@ -11,7 +12,6 @@ resource "aws_lb" "this" {
 
   #checkov:skip=CKV_AWS_150:Ephemeral demo stack, destroyed nightly by design
   #checkov:skip=CKV_AWS_91:Access logs need an S3 bucket with an ELB policy; not worth it for a demo
-  #checkov:skip=CKV2_AWS_20:No domain, so no certificate to redirect to
   #checkov:skip=CKV2_AWS_28:WAF costs $5+/month per web ACL plus rules
 }
 
@@ -37,16 +37,36 @@ resource "aws_lb_target_group" "app" {
   }
 }
 
+# TLS 1.3/1.2 with restricted ciphers and hybrid post-quantum key exchange;
+# clients without PQ support negotiate classical key exchange.
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09"
+  certificate_arn   = data.aws_acm_certificate.main.arn
+
+  # HSTS: browsers that have visited once refuse plain HTTP for a year.
+  routing_http_response_strict_transport_security_header_value = "max-age=31536000; includeSubDomains"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
-  #checkov:skip=CKV_AWS_2:No domain, so no ACM certificate for HTTPS
-  #checkov:skip=CKV_AWS_103:No TLS listener (see CKV_AWS_2)
-
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }

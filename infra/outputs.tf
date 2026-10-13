@@ -1,6 +1,6 @@
 output "app_url" {
   description = "Public URL of the app."
-  value       = "http://${aws_lb.this.dns_name}"
+  value       = "https://${aws_route53_record.app.fqdn}"
 }
 
 output "cluster_name" {

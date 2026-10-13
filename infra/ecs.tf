@@ -170,7 +170,7 @@ resource "aws_ecs_service" "app" {
   wait_for_steady_state = true
 
   depends_on = [
-    aws_lb_listener.http,
+    aws_lb_listener.https,
     aws_ecs_cluster_capacity_providers.this,
     aws_iam_role_policy_attachment.execution,
   ]
