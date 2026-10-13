@@ -4,6 +4,18 @@ variable "project" {
   default     = "cloud-portfolio"
 }
 
+variable "domain_name" {
+  description = "Registered domain (registrar: Namecheap) whose DNS is hosted in Route 53."
+  type        = string
+  default     = "mirkwood.xyz"
+}
+
+variable "app_subdomain" {
+  description = "Subdomain the app is served on. Must match the app stack."
+  type        = string
+  default     = "portfolio"
+}
+
 variable "aws_region" {
   description = "AWS region for all resources."
   type        = string
