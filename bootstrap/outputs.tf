@@ -23,6 +23,11 @@ output "alerts_topic_arn" {
   value       = aws_sns_topic.alerts.arn
 }
 
+output "assistant_readonly_role_arn" {
+  description = "Read-only role for AI assistants and tooling (used by a CLI profile)."
+  value       = aws_iam_role.assistant_readonly.arn
+}
+
 output "repository_url" {
   description = "GitHub repository URL."
   value       = github_repository.this.html_url
