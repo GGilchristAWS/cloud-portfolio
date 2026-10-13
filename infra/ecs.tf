@@ -73,6 +73,21 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# The load-test token (bootstrap/load_test.tf), injected as a secret.
+data "aws_ssm_parameter" "load_test_token" {
+  name            = "/${var.project}/load-test/token"
+  with_decryption = false # only the ARN is used; ECS injects the value
+}
+
+data "aws_iam_policy" "load_test_token_read" {
+  name = "${var.project}-load-test-token-read"
+}
+
+resource "aws_iam_role_policy_attachment" "execution_load_test_token" {
+  role       = aws_iam_role.execution.name
+  policy_arn = data.aws_iam_policy.load_test_token_read.arn
+}
+
 # The app makes no AWS API calls, so the task has no task role.
 
 resource "aws_ecs_task_definition" "app" {
@@ -126,6 +141,11 @@ resource "aws_ecs_task_definition" "app" {
           OTEL_RESOURCE_ATTRIBUTES             = "deployment.environment.name=production,service.version=${var.image_tag}"
           OTEL_EXPERIMENTAL_RESOURCE_DETECTORS = "otel,aws_ecs"
         } : { name = k, value = v }
+      ]
+
+      # Enables /api/simulate for callers holding the token.
+      secrets = [
+        { name = "LOAD_TEST_TOKEN", valueFrom = data.aws_ssm_parameter.load_test_token.arn }
       ]
 
       dependsOn = [{ containerName = "otel-agent", condition = "START" }]
@@ -220,6 +240,7 @@ resource "aws_ecs_service" "app" {
     aws_lb_listener.https,
     aws_ecs_cluster_capacity_providers.this,
     aws_iam_role_policy_attachment.execution,
+    aws_iam_role_policy_attachment.execution_load_test_token,
     aws_ecs_service.monitoring,
   ]
 }

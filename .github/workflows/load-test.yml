@@ -1,0 +1,78 @@
+# Runs a k6 scenario (loadtest/scenarios.js) against production, so the
+# Grafana dashboards and alerts can be watched reacting to load. Start it
+# from the Actions tab -> Load test -> Run workflow.
+name: Load test
+
+on:
+  # checkov:skip=CKV_GHA_7:Builds nothing; the inputs only choose which test to run
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "smoke (1 min), ramp (8 min), spike (5 min, fires alerts) or soak"
+        type: choice
+        options: [smoke, ramp, spike, soak]
+        default: smoke
+      soak_minutes:
+        description: "Soak only: how long to hold steady load"
+        type: number
+        default: 30
+
+permissions:
+  contents: read
+
+# Shared with deploy.yml and teardown.yml, so a test never overlaps a
+# deploy or the nightly teardown.
+concurrency:
+  group: app-stack
+  cancel-in-progress: false
+
+env:
+  APP_URL: https://portfolio.geoffgilchrist.com
+  GRAFANA_URL: https://grafana.portfolio.geoffgilchrist.com
+  K6_IMAGE: grafana/k6:2.3.0
+
+jobs:
+  k6:
+    name: k6 ${{ inputs.scenario }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    # The token is a secret of the production environment, which only main may use.
+    environment:
+      name: production
+      url: ${{ env.GRAFANA_URL }}/d/portfolio-overview
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the app is up
+        run: |
+          if ! curl -fsS --max-time 5 "$APP_URL/health" > /dev/null; then
+            echo "::error::$APP_URL is down (nightly teardown?). Run the Deploy workflow first."
+            exit 1
+          fi
+
+      - name: Run k6
+        id: k6
+        env:
+          LOAD_TEST_TOKEN: ${{ secrets.LOAD_TEST_TOKEN }}
+          SCENARIO: ${{ inputs.scenario }}
+          SOAK_MINUTES: ${{ inputs.soak_minutes }}
+        run: |
+          echo "start=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+          trap 'echo "end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"' EXIT
+          docker run --rm --user "$(id -u)" \
+            -v "$PWD/loadtest:/loadtest" -w /loadtest \
+            -e LOAD_TEST_TOKEN -e SCENARIO -e SOAK_MINUTES -e BASE_URL="$APP_URL" \
+            "$K6_IMAGE" run --quiet scenarios.js
+
+      - name: Report
+        if: always() && steps.k6.outputs.start
+        env:
+          START: ${{ steps.k6.outputs.start }}
+          END: ${{ steps.k6.outputs.end }}
+        run: |
+          [ -f loadtest/summary.md ] && cat loadtest/summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Pad the window so the before and after are visible too.
+          from=$((START - 5 * 60 * 1000)); to=$((END + 5 * 60 * 1000))
+          echo "[Dashboard for this run]($GRAFANA_URL/d/portfolio-overview?from=$from&to=$to)" >> "$GITHUB_STEP_SUMMARY"

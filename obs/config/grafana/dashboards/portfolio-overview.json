@@ -1565,13 +1565,370 @@
     },
     {
       "type": "row",
-      "title": "Traces and logs",
+      "title": "Load testing \u00b7 real visitors vs synthetic load (k6)",
       "collapsed": false,
       "panels": [],
       "id": 27,
       "gridPos": {
         "x": 0,
         "y": 57,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests: real vs synthetic",
+      "description": "Real visitors next to load-test traffic. The headline stats and the SLO count both.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "portfolio:requests_by_traffic:rate1m",
+          "legendFormat": "{{traffic}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "real"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#58a6ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "synthetic"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#a371f7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 28,
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 6,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency: real vs synthetic",
+      "description": "Real pages should stay fast while synthetic load asks for slow answers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "portfolio:latency_by_traffic:p95_1m",
+          "legendFormat": "{{traffic}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "real"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#58a6ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "synthetic"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#a371f7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 29,
+      "gridPos": {
+        "x": 6,
+        "y": 58,
+        "w": 6,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate: real vs synthetic",
+      "description": "Share of 5xx answers. Synthetic errors are requested by the test; real ones are not.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "portfolio:errors_by_traffic:ratio1m",
+          "legendFormat": "{{traffic}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "real"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#58a6ff"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "synthetic"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#a371f7"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 30,
+      "gridPos": {
+        "x": 12,
+        "y": 58,
+        "w": 6,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load-test requests by scenario",
+      "description": "Which k6 scenario is running (smoke, ramp, spike or soak), counted by the app itself.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (scenario) (rate(load_test_requests_total[$__rate_interval]))",
+          "legendFormat": "{{scenario}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "normal"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 31,
+      "gridPos": {
+        "x": 18,
+        "y": 58,
+        "w": 6,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traces and logs",
+      "collapsed": false,
+      "panels": [],
+      "id": 32,
+      "gridPos": {
+        "x": 0,
+        "y": 66,
         "w": 24,
         "h": 1
       }
@@ -1602,10 +1959,10 @@
           "mainStatUnit": "reqps"
         }
       },
-      "id": 28,
+      "id": 33,
       "gridPos": {
         "x": 0,
-        "y": 58,
+        "y": 67,
         "w": 8,
         "h": 10
       }
@@ -1639,10 +1996,10 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 29,
+      "id": 34,
       "gridPos": {
         "x": 8,
-        "y": 58,
+        "y": 67,
         "w": 16,
         "h": 10
       }
@@ -1672,10 +2029,10 @@
         "enableLogDetails": true,
         "dedupStrategy": "none"
       },
-      "id": 30,
+      "id": 35,
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 77,
         "w": 24,
         "h": 10
       }
@@ -1685,10 +2042,10 @@
       "title": "AWS view (CloudWatch)",
       "collapsed": false,
       "panels": [],
-      "id": 31,
+      "id": 36,
       "gridPos": {
         "x": 0,
-        "y": 78,
+        "y": 87,
         "w": 24,
         "h": 1
       }
@@ -1772,10 +2129,10 @@
           }
         }
       ],
-      "id": 32,
+      "id": 37,
       "gridPos": {
         "x": 0,
-        "y": 79,
+        "y": 88,
         "w": 8,
         "h": 7
       }
@@ -1859,10 +2216,10 @@
           }
         }
       ],
-      "id": 33,
+      "id": 38,
       "gridPos": {
         "x": 8,
-        "y": 79,
+        "y": 88,
         "w": 8,
         "h": 7
       }
@@ -1946,10 +2303,10 @@
           }
         }
       ],
-      "id": 34,
+      "id": 39,
       "gridPos": {
         "x": 16,
-        "y": 79,
+        "y": 88,
         "w": 8,
         "h": 7
       }
@@ -2033,10 +2390,10 @@
           }
         }
       ],
-      "id": 35,
+      "id": 40,
       "gridPos": {
         "x": 0,
-        "y": 86,
+        "y": 95,
         "w": 8,
         "h": 7
       }
@@ -2120,10 +2477,10 @@
           }
         }
       ],
-      "id": 36,
+      "id": 41,
       "gridPos": {
         "x": 8,
-        "y": 86,
+        "y": 95,
         "w": 8,
         "h": 7
       }
@@ -2252,10 +2609,10 @@
           }
         }
       ],
-      "id": 37,
+      "id": 42,
       "gridPos": {
         "x": 16,
-        "y": 86,
+        "y": 95,
         "w": 8,
         "h": 7
       }
@@ -2265,10 +2622,10 @@
       "title": "Monitoring stack health",
       "collapsed": false,
       "panels": [],
-      "id": 38,
+      "id": 43,
       "gridPos": {
         "x": 0,
-        "y": 93,
+        "y": 102,
         "w": 24,
         "h": 1
       }
@@ -2334,10 +2691,10 @@
         },
         "overrides": []
       },
-      "id": 39,
+      "id": 44,
       "gridPos": {
         "x": 0,
-        "y": 94,
+        "y": 103,
         "w": 8,
         "h": 7
       }
@@ -2437,10 +2794,10 @@
           }
         ]
       },
-      "id": 40,
+      "id": 45,
       "gridPos": {
         "x": 8,
-        "y": 94,
+        "y": 103,
         "w": 8,
         "h": 7
       }
@@ -2497,10 +2854,10 @@
         },
         "overrides": []
       },
-      "id": 41,
+      "id": 46,
       "gridPos": {
         "x": 16,
-        "y": 94,
+        "y": 103,
         "w": 8,
         "h": 7
       }
@@ -2553,10 +2910,10 @@
         },
         "overrides": []
       },
-      "id": 42,
+      "id": 47,
       "gridPos": {
         "x": 0,
-        "y": 101,
+        "y": 110,
         "w": 6,
         "h": 4
       }
@@ -2610,10 +2967,10 @@
         },
         "overrides": []
       },
-      "id": 43,
+      "id": 48,
       "gridPos": {
         "x": 6,
-        "y": 101,
+        "y": 110,
         "w": 6,
         "h": 4
       }
@@ -2667,10 +3024,10 @@
         },
         "overrides": []
       },
-      "id": 44,
+      "id": 49,
       "gridPos": {
         "x": 12,
-        "y": 101,
+        "y": 110,
         "w": 6,
         "h": 4
       }
@@ -2724,10 +3081,10 @@
         },
         "overrides": []
       },
-      "id": 45,
+      "id": 50,
       "gridPos": {
         "x": 18,
-        "y": 101,
+        "y": 110,
         "w": 6,
         "h": 4
       }
@@ -2764,6 +3121,20 @@
         "step": "2m",
         "titleFormat": "Task started",
         "textFormat": "{{aws_ecs_service_name}} \u00b7 {{task}}",
+        "useValueForTime": false
+      },
+      {
+        "name": "Load tests",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "iconColor": "#a371f7",
+        "expr": "sum by (scenario) (rate(load_test_requests_total[1m])) > 0",
+        "step": "1m",
+        "titleFormat": "Load test",
+        "textFormat": "k6 {{scenario}}",
         "useValueForTime": false
       }
     ]
