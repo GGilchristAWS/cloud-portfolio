@@ -1,0 +1,18 @@
+# Recording rules turn the raw request histogram into the series dashboards
+# read, so panels stay fast and every panel agrees on the definitions.
+
+groups:
+  - name: portfolio-red
+    interval: 15s
+    rules:
+      - record: portfolio:requests:rate1m
+        expr: sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[1m]))
+
+      - record: portfolio:errors:ratio1m
+        expr: |
+          (sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app", http_response_status_code=~"5.."}[1m])) or vector(0))
+            /
+          clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[1m])), 1e-9)
+
+      - record: portfolio:latency:p95_1m
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app"}[1m])))

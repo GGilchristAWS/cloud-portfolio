@@ -115,6 +115,19 @@ resource "aws_ecs_task_definition" "app" {
         initProcessEnabled = true
       }
 
+      # OpenTelemetry auto-instrumentation (see app/Dockerfile) exports
+      # traces, metrics and logs to the collector through Service Connect.
+      environment = [
+        for k, v in {
+          OTEL_SDK_DISABLED                    = "false"
+          OTEL_EXPORTER_OTLP_ENDPOINT          = "http://otel-collector:4318"
+          OTEL_EXPORTER_OTLP_PROTOCOL          = "http/protobuf"
+          OTEL_METRIC_EXPORT_INTERVAL          = "15000"
+          OTEL_RESOURCE_ATTRIBUTES             = "deployment.environment.name=production,service.version=${var.image_tag}"
+          OTEL_EXPERIMENTAL_RESOURCE_DETECTORS = "otel,aws_ecs"
+        } : { name = k, value = v }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -152,6 +165,13 @@ resource "aws_ecs_service" "app" {
     container_port   = var.container_port
   }
 
+  # Client only: gives the app the otel-collector name. ECS adds a proxy
+  # container to the task, which is why the task is sized above the minimum.
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.this.arn
+  }
+
   # Start the new task before stopping the old one; roll back automatically
   # if the new task never becomes healthy.
   deployment_minimum_healthy_percent = 100
@@ -169,9 +189,12 @@ resource "aws_ecs_service" "app" {
   # terraform apply (and therefore the CI deploy job) fails if the rollout does.
   wait_for_steady_state = true
 
+  # Service Connect clients only learn about services that exist when their
+  # tasks start, so the collector's service must be up first.
   depends_on = [
     aws_lb_listener.https,
     aws_ecs_cluster_capacity_providers.this,
     aws_iam_role_policy_attachment.execution,
+    aws_ecs_service.monitoring,
   ]
 }

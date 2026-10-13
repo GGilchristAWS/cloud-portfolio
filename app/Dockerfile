@@ -32,6 +32,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
     GIT_SHA=$GIT_SHA \
     BUILD_TIME=$BUILD_TIME
 
+# OpenTelemetry stays off unless the runtime turns it on (the ECS task does)
+# and points it at a collector with OTEL_EXPORTER_OTLP_ENDPOINT.
+ENV OTEL_SDK_DISABLED=true \
+    OTEL_SERVICE_NAME=portfolio-app \
+    OTEL_SEMCONV_STABILITY_OPT_IN=http \
+    OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true \
+    OTEL_PYTHON_EXCLUDED_URLS=health
+
 RUN useradd --system --uid 10001 --no-create-home app
 
 COPY --from=build /app/.venv /app/.venv
@@ -39,4 +47,6 @@ COPY --from=build /app/.venv /app/.venv
 USER 10001
 EXPOSE 8000
 
-CMD ["uvicorn", "portfolio.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# opentelemetry-instrument wraps the server with auto-instrumentation (traces,
+# metrics and logs) configured entirely from the OTEL_* environment.
+CMD ["opentelemetry-instrument", "uvicorn", "portfolio.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

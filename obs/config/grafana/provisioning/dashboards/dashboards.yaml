@@ -1,0 +1,13 @@
+# Dashboards are code: loaded from the JSON files in this repository and
+# not editable in the UI. Change them in git and redeploy.
+
+apiVersion: 1
+
+providers:
+  - name: portfolio
+    folder: Portfolio
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/obs/grafana/dashboards
