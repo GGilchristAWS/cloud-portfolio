@@ -48,28 +48,17 @@ resource "aws_budgets_budget" "monthly" {
   }
 }
 
-# AWS creates a default service monitor and subscription in new accounts. They
-# are adopted into Terraform here because the default alert threshold ($100 and
-# 40% impact) would never fire for an account this small.
-
-import {
-  to = aws_ce_anomaly_monitor.services
-  id = "arn:aws:ce::${data.aws_caller_identity.current.account_id}:anomalymonitor/85747299-2e9c-4109-8aa3-530bbf9d245b"
-}
-
-import {
-  to = aws_ce_anomaly_subscription.services
-  id = "arn:aws:ce::${data.aws_caller_identity.current.account_id}:anomalysubscription/ad546581-78f1-46b7-b988-bb4e1e1bb07d"
-}
+# Per-service anomaly monitor with a low absolute threshold: AWS's default
+# ($100 and 40% impact) would never fire for an account this small.
 
 resource "aws_ce_anomaly_monitor" "services" {
-  name              = "Default-Services-Monitor"
+  name              = "${var.project}-services"
   monitor_type      = "DIMENSIONAL"
   monitor_dimension = "SERVICE"
 }
 
 resource "aws_ce_anomaly_subscription" "services" {
-  name             = "Default-Services-Subscription"
+  name             = "${var.project}-services"
   frequency        = "DAILY"
   monitor_arn_list = [aws_ce_anomaly_monitor.services.arn]
 
