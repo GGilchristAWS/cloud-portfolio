@@ -7,17 +7,43 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 - **Least privilege**: a read-only plan role for pull requests and a scoped deploy role usable only from the protected `production` environment
 - **Supply-chain hygiene**: Actions pinned to commit SHAs, immutable image tags, image and IaC scanning on every PR, Dependabot with a 7-day cooldown
 - **Cost engineering**: Fargate Spot, no NAT gateway, budgets and anomaly alerts, and an app stack destroyed every night
+- **Observability**: OpenTelemetry traces, metrics and logs in a self-hosted Prometheus, Tempo, Loki and Grafana stack, with dashboards and alert rules as code and the monitoring stack monitoring itself
 
 ## Architecture
 
 ```
-https://portfolio.geoffgilchrist.com
-   │  Route 53 alias
-   ▼
-ALB ──:443 TLS 1.3/1.2 (ACM cert, HSTS)──▶ ECS Fargate Spot task :8000
-    └─:80 ──301──▶ https                     │  pulls image from ECR
-                                             └─ logs to CloudWatch
+  https://portfolio.geoffgilchrist.com                     https://grafana.portfolio.geoffgilchrist.com
+                    │                                                            │
+                    │   Route 53 aliases (portfolio.geoffgilchrist.com zone)     │
+                    ▼                                                            ▼
+   ALB  :443 TLS 1.3/1.2 · ACM wildcard cert · HSTS · :80 → 301 https · routes by host name
+                    │                                                            │
+ ┌──────────────────▼─────────────────────────────────┐            ┌─────────────▼──────────────────────────────────────┐
+ │ APP SERVICE · 2 tasks across 2 AZs                 │            │ MONITORING SERVICE · 1 task                        │
+ │                                                    │            │                                                    │
+ │ app :8000   FastAPI + OpenTelemetry                │            │ Grafana :3000  dashboards, alerts (as code)        │
+ │    │ OTLP over localhost                           │            │    ▲ PromQL / TraceQL / LogQL                      │
+ │ otel-agent  sidecar Collector                      ├────────────▶ otel-collector ─┬─▶ Prometheus  metrics, rules     │
+ │    + this task's CPU/memory/network                │  OTLP via  │   (gateway)     ├─▶ Tempo  traces, service graph   │
+ │      from the ECS metadata endpoint                │  Service   │                 └─▶ Loki   logs (with trace IDs)   │
+ │                                                    │  Connect   │ Prometheus scrapes every component, itself too     │
+ └────────────────────────────────────────────────────┘            └────────────────────────────────────────────────────┘
+
+ ECR: app + obs-config images (per commit) · CloudWatch Logs: every container · Grafana reads CloudWatch (ALB, ECS)
+ Outside the stack: CloudWatch alarms (site down, 5xx, latency, monitoring down) ──▶ SNS ──▶ email
 ```
+
+### Observability
+
+| Signal | Path | Where to see it |
+|---|---|---|
+| Traces | app → agent → gateway → **Tempo** (also generates span metrics and the service graph) | Recent traces panel; click an exemplar dot on the latency graph |
+| Metrics | app and ECS task stats → agent → gateway → **Prometheus** (OTLP receiver); every monitoring component scraped | Golden signals, ECS tasks, monitoring-stack health rows |
+| Logs | app logs with trace IDs → agent → gateway → **Loki**; all containers also to CloudWatch Logs | App logs panel; each line links to its trace |
+| AWS view | **CloudWatch** data source (ALB, ECS service metrics) | AWS view row |
+| Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
+
+Telemetry lives as long as the monitoring task (the stack is torn down nightly); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
 
 | Path | Lifecycle | Contents |
 |---|---|---|
@@ -32,8 +58,8 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | Pull request | Ruff + pytest; image build + Trivy (fails on fixable CRITICAL); `terraform fmt`/`validate`, tflint, Checkov; `terraform plan` of the app stack as the read-only plan role |
-| `deploy.yml` | Push to `main` (app/infra changes), or manual | Builds and pushes the image tagged with the commit SHA, applies Terraform as the deploy role, smoke-tests that the ALB serves that commit |
+| `ci.yml` | Pull request | Ruff + pytest; image builds + Trivy (fails on fixable CRITICAL); observability configs checked by each tool's own validator; `terraform fmt`/`validate`, tflint, Checkov; `terraform plan` of the app stack as the read-only plan role |
+| `deploy.yml` | Push to `main` (app/infra/obs changes), or manual | Builds and pushes the app and observability-config images tagged with the commit SHA, applies Terraform as the deploy role, smoke-tests that the ALB serves that commit and that Grafana is healthy |
 | `teardown.yml` | Nightly 07:00 UTC, or manual | Destroys the app stack |
 
 `main` accepts changes only through pull requests that pass all four CI checks (no bypass, including for admins).
@@ -42,6 +68,8 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 
 - **Bring the app up**: Actions → Deploy → Run workflow. Takes about 5 minutes; the URL is shown on the run.
 - **Take it down**: Actions → Teardown → Run workflow, or wait for the nightly run.
+- **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
+- **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.
 - **Change the foundation** (`bootstrap/`): apply locally with admin credentials. CI cannot modify it.
 
 ```powershell
