@@ -54,3 +54,8 @@ jobs:
           fi
           terraform destroy -input=false -no-color -auto-approve
           echo "App stack destroyed." >> "$GITHUB_STEP_SUMMARY"
+
+# New Achievement! Ephemeral Infrastructure.
+# You've built something that dies every night at 07:00 UTC and comes back
+# like nothing happened. Rewards: a $10 monthly budget and a Bronze Cost
+# Optimization Box.
