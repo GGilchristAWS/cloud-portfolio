@@ -2,6 +2,7 @@
 
 import json
 import os
+import tomllib
 import urllib.request
 from functools import lru_cache
 from pathlib import Path
@@ -19,7 +20,9 @@ BUILD_INFO = {
 
 REPO_URL = "https://github.com/GGilchristAWS/cloud-portfolio"
 
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+PACKAGE_DIR = Path(__file__).parent
+
+templates = Jinja2Templates(directory=PACKAGE_DIR / "templates")
 app = FastAPI(title="cloud-portfolio", docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -44,12 +47,28 @@ def runtime_info() -> dict[str, str]:
     }
 
 
+@lru_cache(maxsize=1)
+def resume() -> dict:
+    """Resume content, edited in resume.toml and rendered by /resume."""
+    with (PACKAGE_DIR / "resume.toml").open("rb") as f:
+        return tomllib.load(f)
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"build": BUILD_INFO, "runtime": runtime_info(), "repo_url": REPO_URL},
+        {"page": "home", "build": BUILD_INFO, "runtime": runtime_info(), "repo_url": REPO_URL},
+    )
+
+
+@app.get("/resume", response_class=HTMLResponse)
+def resume_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "resume.html",
+        {"page": "resume", "resume": resume(), "repo_url": REPO_URL},
     )
 
 
