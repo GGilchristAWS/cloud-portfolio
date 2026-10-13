@@ -17,17 +17,10 @@ distributor:
           endpoint: 127.0.0.1:4417
 
 metrics_generator:
-  # A client span whose target isn't traced (e.g. the ECS metadata endpoint)
-  # still becomes a service-map node, named by the first attribute found.
-  # server.address is added to the defaults so plain HTTP calls qualify.
-  processor:
-    service_graphs:
-      peer_attributes:
-        - peer.service
-        - db.name
-        - db.system
-        - db.system.name
-        - server.address
+  # Service-graph peer attributes stay at Tempo's defaults (peer.service,
+  # db.*). server.address was tried to show uninstrumented HTTP targets, but
+  # the app's own server spans carry it too, so the "user" node for callers
+  # outside the traces turned into the tasks' IP addresses.
   registry:
     external_labels:
       source: tempo
