@@ -135,6 +135,42 @@ data "aws_iam_policy_document" "github_deploy_app" {
     ]
     resources = [aws_ecr_repository.app.arn]
   }
+
+  # The app stack creates and deletes only the app's alias record.
+  statement {
+    sid       = "AppDnsRecord"
+    actions   = ["route53:ChangeResourceRecordSets"]
+    resources = [aws_route53_zone.main.arn]
+
+    # Both keys are multivalued (one request can change several records), so
+    # ForAllValues requires every record in the request to match. ForAllValues
+    # is also true when a key is absent, so each key is required by a Null check.
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+      values   = [lower(local.app_fqdn)]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "route53:ChangeResourceRecordSetsNormalizedRecordNames"
+      values   = ["false"]
+    }
+
+    # A alias to the ALB only: no CNAME/NS/TXT records that could redirect or
+    # re-delegate the name, or answer certificate validation challenges.
+    condition {
+      test     = "ForAllValues:StringEquals"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["A"]
+    }
+
+    condition {
+      test     = "Null"
+      variable = "route53:ChangeResourceRecordSetsRecordTypes"
+      values   = ["false"]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy_app" {

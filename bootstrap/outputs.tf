@@ -28,6 +28,16 @@ output "assistant_readonly_role_arn" {
   value       = aws_iam_role.assistant_readonly.arn
 }
 
+output "name_servers" {
+  description = "Set these as custom DNS name servers at the registrar (Namecheap)."
+  value       = aws_route53_zone.main.name_servers
+}
+
+output "certificate_arn" {
+  description = "ACM certificate for the domain and its subdomains."
+  value       = aws_acm_certificate_validation.main.certificate_arn
+}
+
 output "repository_url" {
   description = "GitHub repository URL."
   value       = github_repository.this.html_url
