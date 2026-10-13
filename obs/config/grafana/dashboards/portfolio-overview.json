@@ -336,8 +336,12 @@
                 "value": null
               },
               {
-                "color": "#3fb950",
+                "color": "#d29922",
                 "value": 1
+              },
+              {
+                "color": "#3fb950",
+                "value": 2
               }
             ]
           }
@@ -410,13 +414,123 @@
     },
     {
       "type": "row",
-      "title": "Traffic and latency",
+      "title": "Alerts and load balancing",
       "collapsed": false,
       "panels": [],
       "id": 8,
       "gridPos": {
         "x": 0,
         "y": 7,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "alertlist",
+      "title": "Active alerts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Prometheus alert rules for the app and the monitoring stack (obs/config/prometheus/rules/alerts.yml). Email notifications come from CloudWatch alarms outside this stack.",
+      "options": {
+        "viewMode": "list",
+        "groupMode": "default",
+        "maxItems": 10,
+        "sortOrder": 1,
+        "dashboardAlerts": false,
+        "alertName": "",
+        "alertInstanceLabelFilter": "",
+        "datasource": "Prometheus",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": false,
+          "normal": false,
+          "error": true
+        },
+        "showInstances": true
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by ECS task",
+      "description": "The load balancer spreads requests across the app tasks; each line is one Fargate task.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (task) (label_replace(rate(http_server_request_duration_seconds_count{service_name=\"portfolio-app\"}[$__rate_interval]), \"task\", \"$1\", \"aws_ecs_task_arn\", \".*/(.{8}).*\"))",
+          "legendFormat": "task {{task}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 16,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traffic and latency",
+      "collapsed": false,
+      "panels": [],
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
         "w": 24,
         "h": 1
       }
@@ -476,10 +590,10 @@
         },
         "overrides": []
       },
-      "id": 9,
+      "id": 12,
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 17,
         "w": 12,
         "h": 8
       }
@@ -604,10 +718,10 @@
           }
         ]
       },
-      "id": 10,
+      "id": 13,
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 17,
         "w": 12,
         "h": 8
       }
@@ -656,10 +770,10 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 11,
+      "id": 14,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 25,
         "w": 12,
         "h": 8
       }
@@ -777,10 +891,10 @@
           }
         ]
       },
-      "id": 12,
+      "id": 15,
       "gridPos": {
         "x": 12,
-        "y": 16,
+        "y": 25,
         "w": 12,
         "h": 8
       }
@@ -790,10 +904,10 @@
       "title": "Traces and logs",
       "collapsed": false,
       "panels": [],
-      "id": 13,
+      "id": 16,
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 33,
         "w": 24,
         "h": 1
       }
@@ -827,10 +941,10 @@
         "defaults": {},
         "overrides": []
       },
-      "id": 14,
+      "id": 17,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 34,
         "w": 12,
         "h": 10
       }
@@ -860,12 +974,538 @@
         "enableLogDetails": true,
         "dedupStrategy": "none"
       },
-      "id": 15,
+      "id": 18,
       "gridPos": {
         "x": 12,
-        "y": 25,
+        "y": 34,
         "w": 12,
         "h": 10
+      }
+    },
+    {
+      "type": "row",
+      "title": "AWS view (CloudWatch)",
+      "collapsed": false,
+      "panels": [],
+      "id": 19,
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load balancer requests by target group",
+      "description": "Requests the ALB routed to each target group per minute: the app and Grafana.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "RequestCount",
+          "statistic": "Sum",
+          "period": "60",
+          "dimensions": {
+            "TargetGroup": [
+              "*"
+            ],
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "${PROP('Dim.TargetGroup')}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "normal"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 20,
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load balancer response time (p95)",
+      "description": "Time from the ALB sending a request to a target until the response starts, as AWS measures it.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "TargetResponseTime",
+          "statistic": "p95",
+          "period": "60",
+          "dimensions": {
+            "TargetGroup": [
+              "*"
+            ],
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "${PROP('Dim.TargetGroup')}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 21,
+      "gridPos": {
+        "x": 8,
+        "y": 45,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Healthy targets",
+      "description": "Tasks passing ALB health checks per target group. The CloudWatch alarms watch these.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HealthyHostCount",
+          "statistic": "Minimum",
+          "period": "60",
+          "dimensions": {
+            "TargetGroup": [
+              "*"
+            ],
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "${PROP('Dim.TargetGroup')}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 22,
+      "gridPos": {
+        "x": 16,
+        "y": 45,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "ECS service CPU",
+      "description": "Average CPU of each ECS service as a share of its reserved CPU.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ECS",
+          "metricName": "CPUUtilization",
+          "statistic": "Average",
+          "period": "60",
+          "dimensions": {
+            "ClusterName": [
+              "cloud-portfolio"
+            ],
+            "ServiceName": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "${PROP('Dim.ServiceName')}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 23,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "ECS service memory",
+      "description": "Average memory of each ECS service as a share of its reserved memory.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ECS",
+          "metricName": "MemoryUtilization",
+          "statistic": "Average",
+          "period": "60",
+          "dimensions": {
+            "ClusterName": [
+              "cloud-portfolio"
+            ],
+            "ServiceName": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "${PROP('Dim.ServiceName')}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "none"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 24,
+      "gridPos": {
+        "x": 8,
+        "y": 52,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Load balancer errors",
+      "description": "Error responses counted by the load balancer.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "A",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_5XX_Count",
+          "statistic": "Sum",
+          "period": "60",
+          "dimensions": {
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "5xx from targets"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "B",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_ELB_5XX_Count",
+          "statistic": "Sum",
+          "period": "60",
+          "dimensions": {
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "5xx from the ALB"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "refId": "C",
+          "queryMode": "Metrics",
+          "region": "default",
+          "namespace": "AWS/ApplicationELB",
+          "metricName": "HTTPCode_Target_4XX_Count",
+          "statistic": "Sum",
+          "period": "60",
+          "dimensions": {
+            "LoadBalancer": [
+              "*"
+            ]
+          },
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "4xx from targets"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": true,
+            "lineInterpolation": "smooth",
+            "stacking": {
+              "mode": "normal"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "id": 25,
+      "gridPos": {
+        "x": 16,
+        "y": 52,
+        "w": 8,
+        "h": 7
       }
     },
     {
@@ -873,10 +1513,10 @@
       "title": "Monitoring stack health",
       "collapsed": false,
       "panels": [],
-      "id": 16,
+      "id": 26,
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 59,
         "w": 24,
         "h": 1
       }
@@ -942,10 +1582,10 @@
         },
         "overrides": []
       },
-      "id": 17,
+      "id": 27,
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 60,
         "w": 8,
         "h": 7
       }
@@ -1045,10 +1685,10 @@
           }
         ]
       },
-      "id": 18,
+      "id": 28,
       "gridPos": {
         "x": 8,
-        "y": 36,
+        "y": 60,
         "w": 8,
         "h": 7
       }
@@ -1105,10 +1745,10 @@
         },
         "overrides": []
       },
-      "id": 19,
+      "id": 29,
       "gridPos": {
         "x": 16,
-        "y": 36,
+        "y": 60,
         "w": 8,
         "h": 7
       }
@@ -1161,10 +1801,10 @@
         },
         "overrides": []
       },
-      "id": 20,
+      "id": 30,
       "gridPos": {
         "x": 0,
-        "y": 43,
+        "y": 67,
         "w": 6,
         "h": 4
       }
@@ -1218,10 +1858,10 @@
         },
         "overrides": []
       },
-      "id": 21,
+      "id": 31,
       "gridPos": {
         "x": 6,
-        "y": 43,
+        "y": 67,
         "w": 6,
         "h": 4
       }
@@ -1275,10 +1915,10 @@
         },
         "overrides": []
       },
-      "id": 22,
+      "id": 32,
       "gridPos": {
         "x": 12,
-        "y": 43,
+        "y": 67,
         "w": 6,
         "h": 4
       }
@@ -1332,10 +1972,10 @@
         },
         "overrides": []
       },
-      "id": 23,
+      "id": 33,
       "gridPos": {
         "x": 18,
-        "y": 43,
+        "y": 67,
         "w": 6,
         "h": 4
       }

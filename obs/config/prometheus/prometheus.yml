@@ -6,16 +6,28 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-# Resource attributes copied onto every OTLP series as labels, so dashboards
-# can filter by version, task and availability zone.
+# OTLP resource attributes (service, version, ECS task, availability zone,
+# container name...) become labels on every series, so dashboards can split
+# by task or service. Per-container timestamps and IDs are left out: they
+# change on every restart and would only multiply series.
 otlp:
-  promote_resource_attributes:
-    - service.name
-    - service.version
-    - service.instance.id
-    - deployment.environment.name
-    - cloud.availability_zone
-    - aws.ecs.task.arn
+  promote_all_resource_attributes: true
+  ignore_resource_attributes:
+    - aws.ecs.task.pull_started_at
+    - aws.ecs.task.pull_stopped_at
+    - aws.ecs.task.known_status
+    - aws.ecs.container.started_at
+    - aws.ecs.container.finished_at
+    - aws.ecs.container.created_at
+    - aws.ecs.container.know_status
+    - aws.ecs.container.exit_code
+    - aws.ecs.container.image.id
+    - aws.ecs.docker.name
+    - container.id
+    - process.pid
+    - process.command_args
+    - process.command_line
+    - process.executable.path
 
 storage:
   tsdb:

@@ -1,0 +1,60 @@
+# OpenTelemetry Collector running as a sidecar ("agent") in every app task.
+#
+# - Receives the app's OTLP on 127.0.0.1:4320, so the app never waits on the
+#   network to export. (4318 is avoided: the Service Connect proxy in the same
+#   task listens on that port for the otel-collector alias.)
+# - Reads the task's own CPU, memory, network and storage stats from the ECS
+#   task metadata endpoint, which only code inside the task can reach.
+# - Forwards everything to the gateway collector in the monitoring task.
+#
+# Passed to the container as an environment variable by infra/ecs.tf.
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:4320
+  awsecscontainermetrics:
+    collection_interval: 15s
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 100
+    spike_limit_mib: 25
+  batch: {}
+
+exporters:
+  otlphttp/gateway:
+    endpoint: http://otel-collector:4318
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/gateway]
+    metrics:
+      receivers: [otlp, awsecscontainermetrics]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/gateway]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/gateway]
+
+  # The agent reports its own health to the gateway, so it's monitored too.
+  telemetry:
+    resource:
+      service.name: otel-agent
+    logs:
+      level: warn
+    metrics:
+      level: normal
+      readers:
+        - periodic:
+            interval: 15000
+            exporter:
+              otlp:
+                protocol: http/protobuf
+                endpoint: http://otel-collector:4318/v1/metrics

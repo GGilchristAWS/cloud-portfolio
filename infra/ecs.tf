@@ -116,11 +116,11 @@ resource "aws_ecs_task_definition" "app" {
       }
 
       # OpenTelemetry auto-instrumentation (see app/Dockerfile) exports
-      # traces, metrics and logs to the collector through Service Connect.
+      # traces, metrics and logs to the agent sidecar below.
       environment = [
         for k, v in {
           OTEL_SDK_DISABLED                    = "false"
-          OTEL_EXPORTER_OTLP_ENDPOINT          = "http://otel-collector:4318"
+          OTEL_EXPORTER_OTLP_ENDPOINT          = "http://127.0.0.1:4320"
           OTEL_EXPORTER_OTLP_PROTOCOL          = "http/protobuf"
           OTEL_METRIC_EXPORT_INTERVAL          = "15000"
           OTEL_RESOURCE_ATTRIBUTES             = "deployment.environment.name=production,service.version=${var.image_tag}"
@@ -128,12 +128,37 @@ resource "aws_ecs_task_definition" "app" {
         } : { name = k, value = v }
       ]
 
+      dependsOn = [{ containerName = "otel-agent", condition = "START" }]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.app.name
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = local.container_name
+        }
+      }
+    },
+    {
+      # OpenTelemetry Collector sidecar: receives the app's telemetry, adds
+      # this task's CPU/memory/network stats from the ECS metadata endpoint,
+      # and forwards both to the gateway collector (obs/config/agent).
+      # Not essential: if it fails, ECS restarts it and the app keeps serving.
+      name              = "otel-agent"
+      image             = local.obs_images.collector
+      essential         = false
+      memoryReservation = 128
+      command           = ["--config=env:OTEL_AGENT_CONFIG"]
+      environment = [
+        { name = "OTEL_AGENT_CONFIG", value = file("${path.module}/../obs/config/agent/config.yaml") }
+      ]
+      restartPolicy = { enabled = true, restartAttemptPeriod = 60 }
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "otel-agent"
         }
       }
     }

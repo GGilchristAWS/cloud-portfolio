@@ -69,9 +69,9 @@ variable "monitoring_memory" {
 }
 
 variable "desired_count" {
-  description = "Number of running tasks."
+  description = "Number of app tasks. Two spread across both availability zones, so dashboards show load balancing."
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "use_spot" {
