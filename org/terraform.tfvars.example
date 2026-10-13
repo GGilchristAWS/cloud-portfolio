@@ -1,3 +1,0 @@
-# Copy to terraform.tfvars (gitignored) and fill in.
-portfolio_account_email   = "you+cloud-portfolio@example.com"
-identity_center_user_name = "you@example.com"

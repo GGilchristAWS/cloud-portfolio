@@ -21,10 +21,11 @@ ALB ──:443 TLS 1.3/1.2 (ACM cert, HSTS)──▶ ECS Fargate Spot task :8000
 
 | Path | Lifecycle | Contents |
 |---|---|---|
-| `org/` | Long-lived, applied locally from the management account | Workloads OU and the portfolio account, the organization's region SCP, IAM Identity Center permission sets (admin and read-only) |
 | `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX), ACM certificate, repository settings and ruleset |
 | `infra/` | Ephemeral (~$1/day while up), applied by CI | VPC, ALB (HTTPS + redirect), app DNS alias, ECS cluster/service/task, log group, alarms |
 | `app/` | | FastAPI app, Dockerfile, tests |
+
+The portfolio runs in its own member account of an AWS Organization. The organization itself (OUs, accounts, SCPs, IAM Identity Center permission sets, org-wide budgets) is managed in a separate private landing-zone repository.
 
 ## Pipeline
 

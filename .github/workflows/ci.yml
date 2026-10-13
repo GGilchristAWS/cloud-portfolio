@@ -107,7 +107,7 @@ jobs:
 
       - name: terraform validate
         run: |
-          for stack in org bootstrap infra; do
+          for stack in bootstrap infra; do
             terraform -chdir=$stack init -backend=false -input=false
             terraform -chdir=$stack validate
           done
