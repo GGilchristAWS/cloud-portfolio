@@ -46,6 +46,7 @@ jobs:
         working-directory: infra
         env:
           TF_VAR_image_tag: unused-for-destroy
+          TF_VAR_obs_config_tag: unused-for-destroy
         run: |
           terraform init -input=false
           if [ -z "$(terraform state list)" ]; then

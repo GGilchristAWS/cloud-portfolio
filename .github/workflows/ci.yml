@@ -180,6 +180,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # component tags come from history
+
+      # Same tags the deploy would use, so the plan only shows a task
+      # definition changing when this PR changes that component.
+      - name: Compute component tags
+        id: tags
+        run: scripts/component-tags.sh | tee -a "$GITHUB_OUTPUT"
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -194,14 +201,16 @@ jobs:
       - name: terraform plan (app stack)
         working-directory: infra
         env:
-          TF_VAR_image_tag: ${{ github.event.pull_request.head.sha }}
+          TF_VAR_image_tag: ${{ steps.tags.outputs.app }}
+          TF_VAR_obs_config_tag: ${{ steps.tags.outputs.obs }}
         run: |
           terraform init -input=false
           terraform plan -input=false -no-color -out=tfplan
           {
             echo "### Terraform plan: app stack"
             echo
-            echo "Image tag: \`$TF_VAR_image_tag\`"
+            echo "App image tag: \`$TF_VAR_image_tag\`"
+            echo "Obs config image tag: \`$TF_VAR_obs_config_tag\`"
             echo
             echo '<details><summary>Plan output</summary>'
             echo

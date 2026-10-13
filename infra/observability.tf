@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "monitoring" {
   container_definitions = jsonencode([
     {
       name        = "config"
-      image       = "${data.aws_ecr_repository.obs_config.repository_url}:${var.image_tag}"
+      image       = "${data.aws_ecr_repository.obs_config.repository_url}:${var.obs_config_tag}"
       essential   = false
       mountPoints = [{ sourceVolume = "config", containerPath = "/etc/obs", readOnly = false }]
       logConfiguration = {

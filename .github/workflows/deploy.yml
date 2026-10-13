@@ -9,6 +9,7 @@ on:
       - app/**
       - infra/**
       - obs/**
+      - scripts/component-tags.sh
       - .github/workflows/deploy.yml
   workflow_dispatch:
 
@@ -23,7 +24,6 @@ concurrency:
 env:
   TF_VERSION: 1.16.5
   TF_IN_AUTOMATION: "1"
-  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   deploy:
@@ -40,6 +40,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # component tags come from history
+
+      # Each component is tagged with the last commit that changed it, so a
+      # dashboard edit doesn't roll the app tasks and an app change doesn't
+      # restart the monitoring task (whose data is task-local until Phase 5).
+      - name: Compute component tags
+        id: tags
+        run: |
+          scripts/component-tags.sh | tee -a "$GITHUB_OUTPUT"
+          scripts/component-tags.sh | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
 
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -50,9 +60,11 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      # Tags are immutable, so a re-run for the same commit reuses the image.
+      # Tags are immutable, so an unchanged component reuses its image.
       - name: Check for existing image
         id: image
+        env:
+          IMAGE_TAG: ${{ steps.tags.outputs.app }}
         run: |
           if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
                --image-ids imageTag="$IMAGE_TAG" > /dev/null 2>&1; then
@@ -78,17 +90,19 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ steps.tags.outputs.app }}
           build-args: |
-            GIT_SHA=${{ env.IMAGE_TAG }}
+            GIT_SHA=${{ steps.tags.outputs.app }}
             BUILD_TIME=${{ steps.meta.outputs.build_time }}
             APP_VERSION=0.1.0
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Configs and dashboards for the monitoring task, tagged with the same SHA.
+      # Configs and dashboards for the monitoring task, tagged independently.
       - name: Check for existing observability config image
         id: obs_image
+        env:
+          IMAGE_TAG: ${{ steps.tags.outputs.obs }}
         run: |
           if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}-obs-config" \
                --image-ids imageTag="$IMAGE_TAG" > /dev/null 2>&1; then
@@ -108,7 +122,7 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}-obs-config:${{ env.IMAGE_TAG }}
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}-obs-config:${{ steps.tags.outputs.obs }}
 
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
@@ -119,7 +133,8 @@ jobs:
         id: apply
         working-directory: infra
         env:
-          TF_VAR_image_tag: ${{ env.IMAGE_TAG }}
+          TF_VAR_image_tag: ${{ steps.tags.outputs.app }}
+          TF_VAR_obs_config_tag: ${{ steps.tags.outputs.obs }}
         run: |
           terraform init -input=false
           terraform plan -input=false -no-color -out=tfplan
@@ -128,10 +143,11 @@ jobs:
           echo "grafana_url=$(terraform output -raw grafana_url)" >> "$GITHUB_OUTPUT"
 
       # The service only reaches steady state once the new task is healthy, but
-      # confirm the load balancer is actually serving this commit.
+      # confirm the load balancer is actually serving the app's commit.
       - name: Smoke test
         env:
           APP_URL: ${{ steps.apply.outputs.app_url }}
+          IMAGE_TAG: ${{ steps.tags.outputs.app }}
         run: |
           for attempt in $(seq 1 20); do
             served=$(curl -fsS --max-time 5 "$APP_URL/version" | jq -r .commit || true)
