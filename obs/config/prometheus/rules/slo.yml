@@ -1,0 +1,89 @@
+# Service level objective for the portfolio app.
+#
+#   SLI: a request is good if it doesn't fail (non-5xx) and completes in
+#        <= 250 ms (an exact bucket boundary of the request histogram, so
+#        no estimation is involved). 4xx responses are the client's error
+#        and count as good.
+#   SLO: 99.5% of requests are good, so the error budget is 0.5%.
+#
+# Burn rate = observed bad ratio / error budget: at 1 the budget lasts
+# exactly the SLO window; at 14.4 a 30-day budget would be gone in 2 days.
+# Prometheus here keeps at most 24 hours (the stack is rebuilt nightly), so
+# budget figures cover "the last 24 hours" rather than a calendar month.
+
+groups:
+  - name: slo-recording
+    interval: 30s
+    rules:
+      - record: slo:objective:ratio
+        expr: vector(0.995)
+
+      # Bad ratio per window: (all - good) / all, which is 0, not NaN, when
+      # there's no traffic. Good = in the <= 0.25 s bucket and not a 5xx.
+      - record: slo:sli_error:ratio_rate5m
+        expr: |
+          (
+            sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[5m]))
+            - (sum(rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app", le="0.25", http_response_status_code!~"5.."}[5m])) or vector(0))
+          )
+          / clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[5m])), 1e-9)
+      - record: slo:sli_error:ratio_rate30m
+        expr: |
+          (
+            sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[30m]))
+            - (sum(rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app", le="0.25", http_response_status_code!~"5.."}[30m])) or vector(0))
+          )
+          / clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[30m])), 1e-9)
+      - record: slo:sli_error:ratio_rate1h
+        expr: |
+          (
+            sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[1h]))
+            - (sum(rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app", le="0.25", http_response_status_code!~"5.."}[1h])) or vector(0))
+          )
+          / clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[1h])), 1e-9)
+      - record: slo:sli_error:ratio_rate6h
+        expr: |
+          (
+            sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[6h]))
+            - (sum(rate(http_server_request_duration_seconds_bucket{service_name="portfolio-app", le="0.25", http_response_status_code!~"5.."}[6h])) or vector(0))
+          )
+          / clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="portfolio-app"}[6h])), 1e-9)
+      - record: slo:sli_error:ratio_rate24h
+        expr: |
+          (
+            sum(increase(http_server_request_duration_seconds_count{service_name="portfolio-app"}[24h]))
+            - (sum(increase(http_server_request_duration_seconds_bucket{service_name="portfolio-app", le="0.25", http_response_status_code!~"5.."}[24h])) or vector(0))
+          )
+          / clamp_min(sum(increase(http_server_request_duration_seconds_count{service_name="portfolio-app"}[24h])), 1e-9)
+
+      - record: slo:burn_rate:5m
+        expr: slo:sli_error:ratio_rate5m / on() group_left() (1 - slo:objective:ratio)
+      - record: slo:burn_rate:30m
+        expr: slo:sli_error:ratio_rate30m / on() group_left() (1 - slo:objective:ratio)
+      - record: slo:burn_rate:1h
+        expr: slo:sli_error:ratio_rate1h / on() group_left() (1 - slo:objective:ratio)
+      - record: slo:burn_rate:6h
+        expr: slo:sli_error:ratio_rate6h / on() group_left() (1 - slo:objective:ratio)
+
+      # Share of the last 24 hours' error budget still unspent (negative = blown).
+      - record: slo:error_budget_remaining:ratio24h
+        expr: 1 - slo:sli_error:ratio_rate24h / on() group_left() (1 - slo:objective:ratio)
+
+  # Multiwindow, multi-burn-rate alerts (Google SRE workbook, ch. 5): each
+  # needs a long window (is it significant?) and a short one (is it still
+  # happening?), so alerts fire fast on big incidents and clear quickly.
+  - name: slo-alerts
+    rules:
+      - alert: SLOErrorBudgetFastBurn
+        expr: slo:burn_rate:1h > 14.4 and slo:burn_rate:5m > 14.4
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: Error budget burning over 14x faster than sustainable (1h and 5m windows).
+
+      - alert: SLOErrorBudgetSlowBurn
+        expr: slo:burn_rate:6h > 6 and slo:burn_rate:30m > 6
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: Error budget burning over 6x faster than sustainable (6h and 30m windows).
