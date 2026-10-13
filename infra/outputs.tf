@@ -24,6 +24,11 @@ output "log_group" {
 }
 
 output "image" {
-  description = "Image currently deployed."
+  description = "App image currently deployed."
   value       = "${data.aws_ecr_repository.app.repository_url}:${var.image_tag}"
+}
+
+output "obs_config_image" {
+  description = "Observability config image currently deployed."
+  value       = "${data.aws_ecr_repository.obs_config.repository_url}:${var.obs_config_tag}"
 }

@@ -23,12 +23,22 @@ variable "app_subdomain" {
 }
 
 variable "image_tag" {
-  description = "Tag of the image in ECR to deploy (the git commit SHA)."
+  description = "Tag of the app image in ECR: the last commit that changed app/ (scripts/component-tags.sh)."
   type        = string
 
   validation {
     condition     = length(trimspace(var.image_tag)) > 0
     error_message = "image_tag must not be empty."
+  }
+}
+
+variable "obs_config_tag" {
+  description = "Tag of the observability config image in ECR: the last commit that changed the monitoring configs (scripts/component-tags.sh)."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.obs_config_tag)) > 0
+    error_message = "obs_config_tag must not be empty."
   }
 }
 

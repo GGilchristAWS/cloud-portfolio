@@ -29,7 +29,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
  │                                                    │  Connect   │ Prometheus scrapes every component, itself too     │
  └────────────────────────────────────────────────────┘            └────────────────────────────────────────────────────┘
 
- ECR: app + obs-config images (per commit) · CloudWatch Logs: every container · Grafana reads CloudWatch (ALB, ECS)
+ ECR: app + obs-config images (per component) · CloudWatch Logs: every container · Grafana reads CloudWatch (ALB, ECS)
  Outside the stack: CloudWatch alarms (site down, 5xx, latency, monitoring down) ──▶ SNS ──▶ email
 ```
 
