@@ -10,9 +10,9 @@ terraform {
 
   # CI roles are scoped to the app/ prefix of the state bucket.
   backend "s3" {
-    bucket       = "cloud-portfolio-tfstate-014574285066"
+    bucket       = "cloud-portfolio-tfstate-010443043480"
     key          = "app/terraform.tfstate"
-    region       = "us-east-1"
+    region       = "us-west-2"
     encrypt      = true
     use_lockfile = true
   }
