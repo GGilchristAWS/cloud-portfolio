@@ -90,6 +90,12 @@ jobs:
             check config /etc/obs/prometheus/prometheus.yml
           docker run --rm $cfg otel/opentelemetry-collector-contrib:0.162.0 \
             validate --config=/etc/obs/collector/config.yaml
+          # The ECS stats receiver only needs its endpoint variable to be set.
+          ecs="-e ECS_CONTAINER_METADATA_URI_V4=http://169.254.170.2/v4/validate"
+          docker run --rm $cfg $ecs otel/opentelemetry-collector-contrib:0.162.0 \
+            validate --config=/etc/obs/collector/config.yaml --config=/etc/obs/collector/ecs.yaml
+          docker run --rm $cfg $ecs otel/opentelemetry-collector-contrib:0.162.0 \
+            validate --config=/etc/obs/agent/config.yaml
           docker run --rm $cfg grafana/loki:3.7.8 \
             -config.file=/etc/obs/loki/loki.yaml -verify-config
           for f in obs/config/grafana/dashboards/*.json; do jq empty "$f"; done

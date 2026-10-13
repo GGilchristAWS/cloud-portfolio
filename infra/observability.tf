@@ -70,6 +70,18 @@ resource "aws_iam_role_policy_attachment" "monitoring_execution" {
   policy_arn = each.value
 }
 
+# Task role: what the containers themselves may call. Grafana's CloudWatch
+# data source reads metrics with it; nothing else in the task uses AWS APIs.
+resource "aws_iam_role" "monitoring_task" {
+  name               = "${var.project}-monitoring-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_trust.json
+}
+
+resource "aws_iam_role_policy_attachment" "monitoring_task_cloudwatch" {
+  role       = aws_iam_role.monitoring_task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+}
+
 resource "aws_ecs_task_definition" "monitoring" {
   family                   = "${var.project}-monitoring"
   requires_compatibilities = ["FARGATE"]
@@ -77,6 +89,7 @@ resource "aws_ecs_task_definition" "monitoring" {
   cpu                      = var.monitoring_cpu
   memory                   = var.monitoring_memory
   execution_role_arn       = aws_iam_role.monitoring_execution.arn
+  task_role_arn            = aws_iam_role.monitoring_task.arn
 
   runtime_platform {
     operating_system_family = "LINUX"
@@ -181,7 +194,7 @@ resource "aws_ecs_task_definition" "monitoring" {
       image             = local.obs_images.collector
       essential         = true
       memoryReservation = 256
-      command           = ["--config=/etc/obs/collector/config.yaml"]
+      command           = ["--config=/etc/obs/collector/config.yaml", "--config=/etc/obs/collector/ecs.yaml"]
       portMappings      = [{ name = "otlp-http", containerPort = 4318, protocol = "tcp", appProtocol = "http" }]
       mountPoints       = local.config_mount
       dependsOn = [
@@ -252,6 +265,7 @@ resource "aws_ecs_service" "monitoring" {
     aws_lb_listener_rule.grafana,
     aws_ecs_cluster_capacity_providers.this,
     aws_iam_role_policy_attachment.monitoring_execution,
+    aws_iam_role_policy_attachment.monitoring_task_cloudwatch,
   ]
 }
 

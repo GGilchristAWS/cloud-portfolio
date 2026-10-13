@@ -1,0 +1,14 @@
+# ECS-only additions to config.yaml, merged on top of it in the monitoring
+# task (--config config.yaml --config ecs.yaml). Kept separate because the
+# ECS task metadata endpoint doesn't exist in the local compose stack.
+#
+# Adds the monitoring task's own CPU, memory, network and storage stats.
+
+receivers:
+  awsecscontainermetrics:
+    collection_interval: 15s
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp, awsecscontainermetrics]

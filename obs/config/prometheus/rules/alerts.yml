@@ -1,0 +1,54 @@
+# Alert rules evaluated by Prometheus inside the stack and shown on the
+# dashboard. Notifications come from CloudWatch alarms outside the stack
+# (infra/monitoring.tf, infra/observability.tf), which keep working when
+# this stack is down; these rules add detail the alarms can't see.
+
+groups:
+  - name: app
+    rules:
+      - alert: AppHighErrorRate
+        expr: portfolio:errors:ratio1m > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 5% of requests are failing with 5xx errors.
+
+      - alert: AppSlowResponses
+        expr: portfolio:latency:p95_1m > 1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: p95 latency has been above 1 second for 5 minutes.
+
+      - alert: AppTasksMissing
+        expr: (count(target_info{job="portfolio-app"}) or vector(0)) < 2
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Fewer than 2 app tasks are reporting telemetry.
+
+  - name: monitoring-stack
+    rules:
+      - alert: MonitoringComponentDown
+        expr: up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} has stopped responding to scrapes."
+
+      - alert: TelemetryRefused
+        expr: |
+          sum(rate(otelcol_receiver_refused_spans[5m]))
+          + sum(rate(otelcol_receiver_refused_metric_points[5m]))
+          + sum(rate(otelcol_receiver_refused_log_records[5m])) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: A collector is refusing telemetry (usually memory pressure).
+
+      - alert: TelemetryExportFailing
+        expr: sum(rate({__name__=~"otelcol_exporter_send_failed_.+"}[5m])) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: A collector can't deliver telemetry to its backend.

@@ -1,4 +1,5 @@
-# Data sources, cross-linked so a viewer can move between signals:
+# Data sources. The telemetry ones are cross-linked so a viewer can move
+# between signals:
 #   latency graph exemplar -> trace (Prometheus -> Tempo)
 #   trace span             -> its logs and metrics (Tempo -> Loki / Prometheus)
 #   log line               -> its trace (Loki -> Tempo)
@@ -60,3 +61,15 @@ datasources:
         queries:
           - name: Request rate
             query: sum(rate(traces_spanmetrics_calls_total{$$__tags}[1m]))
+
+  # AWS's view of the stack (load balancer, ECS services), read with the
+  # monitoring task's IAM role (CloudWatchReadOnlyAccess). No keys anywhere.
+  # Locally there are no AWS credentials, so its panels show an error there.
+  - name: CloudWatch
+    uid: cloudwatch
+    type: cloudwatch
+    access: proxy
+    editable: false
+    jsonData:
+      authType: default
+      defaultRegion: us-west-2
