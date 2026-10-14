@@ -7,10 +7,10 @@
 # Writes loadtest/summary.md for the job summary.
 set -euo pipefail
 
-scenario=${1:?usage: run.sh <smoke|ramp|spike|soak>}
+scenario=${1:?usage: run.sh <smoke|ramp|spike|soak|burnin|art>}
 cd "$(dirname "$0")"
 image=$(yq '.services.k6.image' ../obs/compose.yaml)
 
 docker run --rm --user "$(id -u)" -v "$PWD:/loadtest" -w /loadtest \
-  -e LOAD_TEST_TOKEN -e BASE_URL -e SOAK_MINUTES -e SCENARIO="$scenario" \
+  -e LOAD_TEST_TOKEN -e BASE_URL -e SOAK_MINUTES -e ART_TEXT -e SCENARIO="$scenario" \
   "$image" run --quiet scenarios.js

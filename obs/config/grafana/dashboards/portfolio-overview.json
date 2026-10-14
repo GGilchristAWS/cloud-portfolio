@@ -1397,14 +1397,15 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "How request durations are spread over time; brighter cells hold more requests.",
+      "description": "How request durations are spread over time; brighter cells hold more requests. Each column counts exactly its own interval (at least a minute), so cells don't blur into their neighbours.",
+      "interval": "1m",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (le) (increase(http_server_request_duration_seconds_bucket{service_name=\"portfolio-app\"}[$__rate_interval]))",
+          "expr": "sum by (le) (increase(http_server_request_duration_seconds_bucket{service_name=\"portfolio-app\"}[$__interval]))",
           "legendFormat": "{{le}}",
           "format": "heatmap",
           "refId": "A"
