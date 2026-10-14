@@ -5,6 +5,10 @@
 #   docker compose -f obs/compose.yaml up --build
 #   app:     http://localhost:8000
 #   grafana: http://localhost:3000   (admin / admin)
+#
+# This file is also the single place the observability and k6 image versions
+# are pinned: infra/ (Terraform) and the CI workflows read them from here,
+# and Dependabot (docker-compose ecosystem) proposes the updates.
 
 name: portfolio-obs
 
@@ -67,3 +71,10 @@ services:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/obs/grafana/dashboards/portfolio-overview.json
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+
+  # Not part of the stack: listed here so its version is pinned in the same
+  # place as the others (load-test.yml and deploy.yml read it from here).
+  # The profile keeps it from starting with `up`.
+  k6:
+    image: grafana/k6:2.3.0
+    profiles: [loadtest]

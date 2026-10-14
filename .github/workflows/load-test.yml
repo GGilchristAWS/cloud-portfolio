@@ -29,7 +29,6 @@ concurrency:
 env:
   APP_URL: https://portfolio.geoffgilchrist.com
   GRAFANA_URL: https://grafana.portfolio.geoffgilchrist.com
-  K6_IMAGE: grafana/k6:2.3.0
 
 jobs:
   k6:
@@ -61,10 +60,7 @@ jobs:
         run: |
           echo "start=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
           trap 'echo "end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"' EXIT
-          docker run --rm --user "$(id -u)" \
-            -v "$PWD/loadtest:/loadtest" -w /loadtest \
-            -e LOAD_TEST_TOKEN -e SCENARIO -e SOAK_MINUTES -e BASE_URL="$APP_URL" \
-            "$K6_IMAGE" run --quiet scenarios.js
+          BASE_URL="$APP_URL" loadtest/run.sh "$SCENARIO"
 
       - name: Report
         if: always() && steps.k6.outputs.start

@@ -162,6 +162,17 @@ jobs:
           echo "::error::$APP_URL is not serving $IMAGE_TAG"
           exit 1
 
+      # A minute of k6 traffic through the load balancer, with latency and
+      # error thresholds, so an upgrade that slows or breaks the app fails
+      # its deploy instead of only showing up on the dashboards.
+      - name: k6 smoke test
+        env:
+          LOAD_TEST_TOKEN: ${{ secrets.LOAD_TEST_TOKEN }}
+          BASE_URL: ${{ steps.apply.outputs.app_url }}
+        run: |
+          loadtest/run.sh smoke
+          cat loadtest/summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Smoke test Grafana
         env:
           GRAFANA_URL: ${{ steps.apply.outputs.grafana_url }}
