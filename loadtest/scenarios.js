@@ -14,8 +14,8 @@
 //   soak    30 min  steady 15 req/s with 1% errors, to watch everything settle
 //   burnin  ~1 h    all four in order, with 3 quiet minutes between them so
 //                   each recovery is visible too
-//   art     ~30 min writes ART_TEXT (default HELLO) across the "Latency
-//                   distribution" heatmap in pixel letters (see art.js)
+//   art     ~50 min paints ART (default starry-night, or any short text) on the "Latency
+//                   distribution" heatmap (see art.js)
 import exec from "k6/execution";
 import http from "k6/http";
 import { check, sleep } from "k6";
@@ -97,7 +97,7 @@ function schedule(stageNames) {
 
 // One scenario per heatmap row, each sending that row's latency during the
 // minutes its pixels are lit.
-const ART = artGrid(__ENV.ART_TEXT || "HELLO");
+const ART = artGrid(__ENV.ART || "starry-night");
 
 function artScenarios() {
   const scenarios = {};

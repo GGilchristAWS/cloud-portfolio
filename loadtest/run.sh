@@ -12,5 +12,5 @@ cd "$(dirname "$0")"
 image=$(yq '.services.k6.image' ../obs/compose.yaml)
 
 docker run --rm --user "$(id -u)" -v "$PWD:/loadtest" -w /loadtest \
-  -e LOAD_TEST_TOKEN -e BASE_URL -e SOAK_MINUTES -e ART_TEXT -e SCENARIO="$scenario" \
+  -e LOAD_TEST_TOKEN -e BASE_URL -e SOAK_MINUTES -e ART -e SCENARIO="$scenario" \
   "$image" run --quiet scenarios.js

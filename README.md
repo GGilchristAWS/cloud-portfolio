@@ -84,7 +84,7 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 - **Bring the app up**: Actions → Deploy → Run workflow. Takes about 5 minutes; the URL is shown on the run.
 - **Take it down**: Actions → Teardown → Run workflow, or wait for the nightly run.
 - **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
-- **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour; `art` writes text across the latency heatmap.
+- **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour; `art` paints a pixel-art Starry Night (or any short text) on the latency heatmap.
 - **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.
 - **Change the foundation** (`bootstrap/`): apply locally with admin credentials. CI cannot modify it.
 

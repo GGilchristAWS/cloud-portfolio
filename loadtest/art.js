@@ -1,5 +1,5 @@
 // Pixel art for the dashboard's "Latency distribution" heatmap, used by the
-// "art" scenario in scenarios.js.
+// "art" scenario in scenarios.js: a named picture, or any short text.
 //
 // The heatmap has one row per latency bucket of the request histogram and one
 // column per minute, and a cell's brightness is how many requests landed in
@@ -10,8 +10,8 @@
 export const COLUMN_SECONDS = 60;
 
 // Requests per second for a fully lit pixel. A pixel at brightness level L
-// (0-3) gets L/3 of that.
-export const RATE_PER_PIXEL = 3;
+// (0-5) gets L/5 of that.
+export const RATE_PER_PIXEL = 5;
 
 // A latency (ms) inside each histogram bucket, bottom row first. The buckets
 // are the OpenTelemetry defaults: <5 ms, 5-10, 10-25, 25-50, 50-75, 75-100,
@@ -63,15 +63,50 @@ const FONT = {
   "*": "00000 01010 11111 11111 01110 00100 00000", // a heart
 };
 
-const ROWS = ROW_LATENCY_MS.length; // 11
-const TEXT_LEVEL = 3; // brightest
-const FRAME_LEVEL = 1; // dim
+// Pictures, 11 rows (top first) by any width, one minute per column. Each
+// character is a brightness: " " dark, then . - ~ o * up to white-hot.
+// Heatmap cells are about 3x wider than tall at a 45-minute range, so
+// shapes are drawn narrow.
+const SHADES = " .-~o*";
+const PICTURES = {
+  // After Van Gogh: the cypress, the swirling wind, haloed stars, the
+  // crescent moon, and the village's lit windows under dark hills.
+  "starry-night": [
+    "....- -..-~-..........~*~........-~-...-~o*o-...",
+    "-~-.- -..~*~..........-~-........~*~...-~*---...",
+    "~*~-  ----~-....~oo.......~~.-----~---.-~*---...",
+    "-~~~  ~~~~~~---.o~o.......oo~~~~~~~~~~~-~o*o-...",
+    "~~--  -..---~~~-o--.o.---~o~-o--...--~-~~~---...",
+    "-..-   -.....--~o~~o~~~~~-o~~~......~*~---~~~~~~",
+    "...-   -.....-~-~ooo-----.~oo-~- ...-~-...---~*~",
+    "...-   -.....~*~..~..........~*~ ............-~-",
+    "                  ...........-~   .........     ",
+    "               o      o      o        o      o  ",
+    "            o      o      o       o       o     ",
+  ],
+};
 
-// Brightness of every pixel, as grid[row][column] with row 0 at the bottom.
-// Layout, top to bottom: frame, blank, 7 rows of text, blank, frame; and left
-// to right: frame, blank, the text (1 blank column between letters), blank,
-// frame. Unknown characters render as spaces; text is capped at 12 characters.
-export function artGrid(text) {
+const ROWS = ROW_LATENCY_MS.length; // 11
+const TEXT_LEVEL = 5; // white-hot
+const FRAME_LEVEL = 2; // dim orange
+
+// Brightness (0-5) of every pixel, as grid[row][column] with row 0 at the
+// bottom. `art` names a picture, or is text to write.
+export function artGrid(art) {
+  const picture = PICTURES[art.toLowerCase()];
+  if (picture) {
+    if (picture.length !== ROWS || new Set(picture.map((line) => line.length)).size !== 1) {
+      throw new Error(`Picture "${art}" must be ${ROWS} rows of equal width`);
+    }
+    return picture.map((line) => [...line].map((ch) => SHADES.indexOf(ch))).reverse();
+  }
+  return textGrid(art);
+}
+
+// Text layout, top to bottom: frame, blank, 7 rows of text, blank, frame; and
+// left to right: frame, blank, the text (1 blank column between letters),
+// blank, frame. Unknown characters render as spaces; capped at 12 characters.
+function textGrid(text) {
   const glyphs = [...text.toUpperCase().slice(0, 12)].map((ch) => (FONT[ch] || FONT[" "]).split(" "));
   const textWidth = glyphs.length * 6 - 1;
   const width = textWidth + 4;
@@ -97,7 +132,7 @@ export function artGrid(text) {
 // The grid as text, top row first, for the job log.
 export function preview(grid) {
   return grid
-    .map((cells) => cells.map((v) => " .o#"[v]).join(""))
+    .map((cells) => cells.map((v) => SHADES[v]).join(""))
     .reverse()
     .join("\n");
 }

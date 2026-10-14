@@ -8,14 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: "smoke (1 min), ramp (10 min), spike (10 min), soak, burnin (all four, ~1 h) or art (text on the latency heatmap)"
+        description: "smoke (1 min), ramp (10 min), spike (10 min), soak, burnin (all four, ~1 h) or art (a picture on the latency heatmap)"
         type: choice
         options: [smoke, ramp, spike, soak, burnin, art]
         default: smoke
-      art_text:
-        description: "Art only: up to 12 characters (A-Z, 0-9, space, ! - and * for a heart); ~6 min per character"
+      art:
+        description: "Art only: starry-night (48 min), or up to 12 characters of text (A-Z, 0-9, space, ! - and * for a heart; ~6 min each)"
         type: string
-        default: HELLO
+        default: starry-night
       soak_minutes:
         description: "Soak and burn-in: minutes of steady load at the end"
         type: number
@@ -61,7 +61,7 @@ jobs:
           LOAD_TEST_TOKEN: ${{ secrets.LOAD_TEST_TOKEN }}
           SCENARIO: ${{ inputs.scenario }}
           SOAK_MINUTES: ${{ inputs.soak_minutes }}
-          ART_TEXT: ${{ inputs.art_text }}
+          ART: ${{ inputs.art }}
         run: |
           echo "start=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
           trap 'echo "end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"' EXIT
