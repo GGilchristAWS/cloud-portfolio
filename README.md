@@ -100,3 +100,7 @@ terraform apply tfplan
 ## Accepted risks
 
 Checkov findings that are deliberate for a low-cost demo are skipped inline on each resource with the reason. In summary: no WAF, no DNSSEC, no KMS customer-managed keys, no ALB access logs or VPC flow logs, short log retention, and tasks with public IPs instead of a NAT gateway (inbound restricted to the ALB security group).
+
+## License
+
+The code is [MIT](LICENSE) licensed. The résumé content in `app/src/portfolio/resume.toml` is personal and not covered by it. The tools the stack runs (Grafana, Loki, Tempo, k6, Prometheus, the OpenTelemetry Collector and others) are used unmodified under their own licenses.
