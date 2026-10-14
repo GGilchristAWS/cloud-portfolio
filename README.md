@@ -42,7 +42,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 | Logs | app logs with trace IDs → agent → gateway → **Loki**; all containers also to CloudWatch Logs | App logs panel; each line links to its trace |
 | AWS view | **CloudWatch** data source (ALB, ECS service metrics) | AWS view row |
 | Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
-| Load tests | **k6** scenarios (smoke, ramp, spike, soak) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
+| Load tests | **k6** scenarios (smoke, ramp, spike, soak, and a ~1 h burn-in running all four) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
 
 Telemetry lives as long as the monitoring task (the stack is torn down nightly); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
 
@@ -84,7 +84,7 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 - **Bring the app up**: Actions → Deploy → Run workflow. Takes about 5 minutes; the URL is shown on the run.
 - **Take it down**: Actions → Teardown → Run workflow, or wait for the nightly run.
 - **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
-- **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose.
+- **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour.
 - **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.
 - **Change the foundation** (`bootstrap/`): apply locally with admin credentials. CI cannot modify it.
 
