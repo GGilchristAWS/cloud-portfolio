@@ -1,15 +1,19 @@
 // k6 load-test scenarios against the app's /api/simulate endpoint, which
 // answers with the latency and error rate each request asks for. Run by
-// .github/workflows/load-test.yml; locally:
+// .github/workflows/load-test.yml and, after every deploy, deploy.yml (smoke);
+// locally:
 //
 //   k6 run -e SCENARIO=smoke -e LOAD_TEST_TOKEN=... loadtest/scenarios.js
 //
-// Each scenario tells a story on the Grafana dashboard:
-//   smoke  low, healthy traffic: a baseline, and a check that everything works
-//   ramp   traffic climbs while the app slows down, so p95 and CPU rise with it
-//   spike  a burst of slow, failing requests that fires the error-rate and
-//          fast-burn SLO alerts
-//   soak   steady moderate traffic for a long run, to watch for drift
+// Each stage tells a story on the Grafana dashboard:
+//   smoke   1 min   low, healthy traffic: a baseline and a check that it all works
+//   ramp    10 min  traffic climbs to 60 req/s while the app slows past 1 s:
+//                   fires AppSlowResponses and burns the SLO's latency budget
+//   spike   10 min  a 6-minute burst of 100 req/s with 10% errors: fires
+//                   AppHighErrorRate and both SLO burn-rate alerts
+//   soak    30 min  steady 15 req/s with 1% errors, to watch everything settle
+//   burnin  ~1 h    all four in order, with 3 quiet minutes between them so
+//                   each recovery is visible too
 import exec from "k6/execution";
 import http from "k6/http";
 import { check } from "k6";
@@ -17,52 +21,87 @@ import { check } from "k6";
 const BASE_URL = __ENV.BASE_URL || "https://portfolio.geoffgilchrist.com";
 const SCENARIO = __ENV.SCENARIO || "smoke";
 const SOAK_MINUTES = Number(__ENV.SOAK_MINUTES || 30);
+const GAP_SECONDS = 180;
 
-const PROFILES = {
+// Each stage: its k6 scenarios (start times relative to the stage) and length.
+const STAGES = {
   smoke: {
+    seconds: 60,
     scenarios: {
       smoke: { executor: "constant-arrival-rate", rate: 2, timeUnit: "1s", duration: "1m",
                preAllocatedVUs: 5, exec: "healthy" },
     },
-    // The only scenario with performance thresholds: it asks for a healthy app.
-    thresholds: { http_req_duration: ["p(95)<500"], http_req_failed: ["rate<0.01"] },
   },
   ramp: {
+    seconds: 600,
     scenarios: {
       ramp: { executor: "ramping-arrival-rate", startRate: 1, timeUnit: "1s",
-              preAllocatedVUs: 20, maxVUs: 100, exec: "degrading",
+              preAllocatedVUs: 40, maxVUs: 200, exec: "degrading",
               stages: [
-                { target: 40, duration: "5m" },
-                { target: 40, duration: "2m" },
+                { target: 60, duration: "4m" },
+                { target: 60, duration: "5m" },
                 { target: 0, duration: "1m" },
               ] },
     },
   },
   spike: {
+    seconds: 600,
     scenarios: {
-      baseline: { executor: "constant-arrival-rate", rate: 5, timeUnit: "1s", duration: "5m",
+      baseline: { executor: "constant-arrival-rate", rate: 5, timeUnit: "1s", duration: "10m",
                   preAllocatedVUs: 10, exec: "healthy" },
-      burst: { executor: "constant-arrival-rate", rate: 60, timeUnit: "1s", duration: "2m",
-               startTime: "1m", preAllocatedVUs: 40, maxVUs: 120, exec: "failing" },
+      // Longer than the 5 minutes AppHighErrorRate waits before firing.
+      burst: { executor: "constant-arrival-rate", rate: 100, timeUnit: "1s", duration: "6m",
+               startTime: "60s", preAllocatedVUs: 60, maxVUs: 200, exec: "failing" },
     },
   },
   soak: {
+    seconds: SOAK_MINUTES * 60,
     scenarios: {
-      soak: { executor: "constant-arrival-rate", rate: 10, timeUnit: "1s",
-              duration: `${SOAK_MINUTES}m`, preAllocatedVUs: 20, maxVUs: 50, exec: "steady" },
+      soak: { executor: "constant-arrival-rate", rate: 15, timeUnit: "1s",
+              duration: `${SOAK_MINUTES}m`, preAllocatedVUs: 20, maxVUs: 60, exec: "steady" },
     },
   },
+};
+
+const PROFILES = {
+  smoke: ["smoke"],
+  ramp: ["ramp"],
+  spike: ["spike"],
+  soak: ["soak"],
+  burnin: ["smoke", "ramp", "spike", "soak"],
 };
 
 if (!PROFILES[SCENARIO]) {
   throw new Error(`Unknown SCENARIO "${SCENARIO}"; pick one of ${Object.keys(PROFILES).join(", ")}`);
 }
 
+// Lays the stages end to end. Each scenario carries its stage name in STAGE,
+// which becomes the request's scenario label, so the dashboard shows which
+// stage is running even within one burn-in.
+function schedule(stageNames) {
+  const scenarios = {};
+  let offset = 0;
+  for (const name of stageNames) {
+    for (const [key, s] of Object.entries(STAGES[name].scenarios)) {
+      const start = offset + parseInt(s.startTime || "0", 10);
+      scenarios[key] = { ...s, startTime: `${start}s`, env: { STAGE: name } };
+    }
+    offset += STAGES[name].seconds + GAP_SECONDS;
+  }
+  return scenarios;
+}
+
+// The smoke stage asks for a healthy app, so it's the one with performance
+// thresholds (k6 tags every request with its scenario).
+const smokeThresholds = PROFILES[SCENARIO].includes("smoke")
+  ? { "http_req_duration{scenario:smoke}": ["p(95)<500"], "http_req_failed{scenario:smoke}": ["rate<0.01"] }
+  : {};
+
 export const options = {
-  scenarios: PROFILES[SCENARIO].scenarios,
-  // Every scenario must at least reach the endpoint: a wrong token or a
-  // stack that's down shows up as failed checks, not as a "passing" run.
-  thresholds: { checks: ["rate>0.99"], ...PROFILES[SCENARIO].thresholds },
+  scenarios: schedule(PROFILES[SCENARIO]),
+  // Every stage must at least reach the endpoint: a wrong token or a stack
+  // that's down shows up as failed checks, not as a "passing" run.
+  thresholds: { checks: ["rate>0.99"], ...smokeThresholds },
   summaryTrendStats: ["med", "p(95)", "p(99)", "max"],
 };
 
@@ -78,7 +117,10 @@ export function setup() {
 function simulate(params) {
   const query = Object.entries(params).map(([k, v]) => `${k}=${v}`).join("&");
   return http.get(`${BASE_URL}/api/simulate?${query}`, {
-    headers: { "X-Load-Test-Token": __ENV.LOAD_TEST_TOKEN, "X-Load-Test-Scenario": SCENARIO },
+    headers: {
+      "X-Load-Test-Token": __ENV.LOAD_TEST_TOKEN,
+      "X-Load-Test-Scenario": __ENV.STAGE || SCENARIO,
+    },
     tags: { name: "simulate" }, // one k6 metric series, whatever the query string
   });
 }
@@ -93,10 +135,10 @@ export function healthy() {
   answered(simulate({ latency_ms: 40, jitter_ms: 20 }));
 }
 
-// Latency grows from 40 ms to 400 ms over the run, crossing the SLO's 250 ms.
+// Latency climbs from 40 ms past 1 s halfway through, then holds at 1.5 s.
 export function degrading() {
-  const latency = Math.round(40 + 360 * exec.scenario.progress);
-  answered(simulate({ latency_ms: latency, jitter_ms: 30 }));
+  const latency = Math.min(1500, Math.round(40 + 2000 * exec.scenario.progress));
+  answered(simulate({ latency_ms: latency, jitter_ms: 100 }));
 }
 
 export function failing() {

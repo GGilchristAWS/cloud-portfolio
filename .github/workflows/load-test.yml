@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: "smoke (1 min), ramp (8 min), spike (5 min, fires alerts) or soak"
+        description: "smoke (1 min), ramp (10 min), spike (10 min), soak, or burnin (all four, ~1 h)"
         type: choice
-        options: [smoke, ramp, spike, soak]
+        options: [smoke, ramp, spike, soak, burnin]
         default: smoke
       soak_minutes:
-        description: "Soak only: how long to hold steady load"
+        description: "Soak and burn-in: minutes of steady load at the end"
         type: number
         default: 30
 
