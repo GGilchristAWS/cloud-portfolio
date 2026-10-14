@@ -1,0 +1,44 @@
+# Monthly check of the CI tool versions Dependabot can't update (they're
+# written into workflow steps). Keeps one open issue listing what's behind,
+# so a bump that nobody asked for still gets noticed. The bump itself is a
+# normal PR: change every pin the report lists, and CI tests it.
+name: Tool version drift
+
+on:
+  schedule:
+    - cron: "0 15 1 * *" # 1st of the month, 08:00 Pacific
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: Compare pinned tool versions
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare pins with releases
+        id: drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/tool-drift.sh | tee report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the drift issue
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: CI tool versions are behind
+        run: |
+          number=$(gh issue list --state open --search "\"$TITLE\" in:title" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file report.md
+          else
+            gh issue create --title "$TITLE" --body-file report.md
+          fi

@@ -11,12 +11,17 @@
 
 locals {
   grafana_fqdn = "grafana.${var.domain_name}"
+
+  # Image versions are pinned once, in obs/compose.yaml: the local stack, CI's
+  # config validation and this task all run exactly the same versions, and a
+  # Dependabot bump there is a one-line change.
+  compose_services = yamldecode(file("${path.module}/../obs/compose.yaml")).services
   obs_images = {
-    collector  = "otel/opentelemetry-collector-contrib:0.162.0"
-    prometheus = "prom/prometheus:v3.15.0"
-    loki       = "grafana/loki:3.7.8"
-    tempo      = "grafana/tempo:3.1.0"
-    grafana    = "grafana/grafana:13.1.8"
+    collector  = local.compose_services["otel-collector"].image
+    prometheus = local.compose_services.prometheus.image
+    loki       = local.compose_services.loki.image
+    tempo      = local.compose_services.tempo.image
+    grafana    = local.compose_services.grafana.image
   }
   obs_log_options = {
     "awslogs-group"  = aws_cloudwatch_log_group.monitoring.name

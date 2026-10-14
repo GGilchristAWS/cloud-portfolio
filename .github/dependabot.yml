@@ -1,5 +1,15 @@
-# Weekly grouped updates. The cooldown skips releases younger than 7 days, so a
-# compromised release has time to be caught before it reaches this repo.
+# Weekly grouped updates, Monday mornings (Pacific).
+#
+# The cooldown skips releases younger than 14 days (30 for a new major), so a
+# broken or compromised release has time to be caught before it reaches this
+# repo. Security updates ignore the cooldown.
+#
+# Minor and patch updates are grouped into one PR per ecosystem; a major
+# version always arrives as its own PR, since majors (Grafana, Tempo in
+# particular) can change config formats and need their changelog read.
+#
+# Not covered: CI tool versions written into workflow steps (Terraform,
+# tflint, Trivy, checkov, uv). The monthly tool-drift workflow reports those.
 version: 2
 
 updates:
@@ -7,28 +17,62 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Los_Angeles
     cooldown:
-      default-days: 7
+      default-days: 14
+      semver-major-days: 30
     groups:
       actions:
         patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: uv
     directory: /app
     schedule:
       interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Los_Angeles
     cooldown:
-      default-days: 7
+      default-days: 14
+      semver-major-days: 30
     groups:
       python:
         patterns: ["*"]
+        update-types: [minor, patch]
 
+  # Base images: the app's Python image and the observability config image.
   - package-ecosystem: docker
-    directory: /app
+    directories:
+      - /app
+      - /obs
     schedule:
       interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Los_Angeles
     cooldown:
-      default-days: 7
+      default-days: 14
+      semver-major-days: 30
+
+  # The observability stack and k6, pinned once in obs/compose.yaml and read
+  # from there by Terraform and CI. One PR bumps local, CI and production.
+  - package-ecosystem: docker-compose
+    directory: /obs
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Los_Angeles
+    cooldown:
+      default-days: 14
+      semver-major-days: 30
+    groups:
+      observability:
+        patterns: ["*"]
+        update-types: [minor, patch]
 
   - package-ecosystem: terraform
     directories:
@@ -36,8 +80,13 @@ updates:
       - /infra
     schedule:
       interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Los_Angeles
     cooldown:
-      default-days: 7
+      default-days: 14
+      semver-major-days: 30
     groups:
       terraform:
         patterns: ["*"]
+        update-types: [minor, patch]

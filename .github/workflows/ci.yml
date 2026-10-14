@@ -81,24 +81,35 @@ jobs:
           exit-code: "0"
           skip-setup-trivy: true
 
-      # Each tool checks its own config, with the same versions the monitoring
-      # task runs (infra/observability.tf), so a typo fails here, not on deploy.
+      # Each tool checks its own config, with the versions pinned in
+      # obs/compose.yaml, which the monitoring task also runs (Terraform reads
+      # them from there). A typo or an incompatible bump fails here, not on deploy.
       - name: Validate observability configs
         run: |
+          image() { yq ".services[\"$1\"].image" obs/compose.yaml; }
           cfg="-v $PWD/obs/config:/etc/obs:ro"
-          docker run --rm $cfg --entrypoint promtool prom/prometheus:v3.15.0 \
+          docker run --rm $cfg --entrypoint promtool "$(image prometheus)" \
             check config /etc/obs/prometheus/prometheus.yml
-          docker run --rm $cfg otel/opentelemetry-collector-contrib:0.162.0 \
+          docker run --rm $cfg "$(image otel-collector)" \
             validate --config=/etc/obs/collector/config.yaml
           # The ECS stats receiver only needs its endpoint variable to be set.
           ecs="-e ECS_CONTAINER_METADATA_URI_V4=http://169.254.170.2/v4/validate"
-          docker run --rm $cfg $ecs otel/opentelemetry-collector-contrib:0.162.0 \
+          docker run --rm $cfg $ecs "$(image otel-collector)" \
             validate --config=/etc/obs/collector/config.yaml --config=/etc/obs/collector/ecs.yaml
-          docker run --rm $cfg $ecs otel/opentelemetry-collector-contrib:0.162.0 \
+          docker run --rm $cfg $ecs "$(image otel-collector)" \
             validate --config=/etc/obs/agent/config.yaml
-          docker run --rm $cfg grafana/loki:3.7.8 \
+          docker run --rm $cfg "$(image loki)" \
             -config.file=/etc/obs/loki/loki.yaml -verify-config
           for f in obs/config/grafana/dashboards/*.json; do jq empty "$f"; done
+
+      # Valid configs can still fail to start (a renamed flag, a removed
+      # feature after a bump), so run the whole stack and wait for health.
+      - name: Start the observability stack and check it is healthy
+        run: scripts/compose-health.sh
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose -f obs/compose.yaml logs --tail 50
 
       - name: Build observability config image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

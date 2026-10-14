@@ -64,8 +64,20 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 | `deploy.yml` | Push to `main` (app/infra/obs changes), or manual | Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role, smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
 | `load-test.yml` | Manual | Runs a k6 scenario against production; the job summary links to the dashboard for that time window |
 | `teardown.yml` | Nightly 07:00 UTC, or manual | Destroys the app stack |
+| `tool-drift.yml` | Monthly, or manual | Reports CI tool versions Dependabot can't update and keeps one issue open while any are behind |
 
 `main` accepts changes only through pull requests that pass all four CI checks (no bypass, including for admins).
+
+### Dependency updates
+
+| Step | How |
+|---|---|
+| Propose | Dependabot, weekly (Monday 08:00 Pacific), for Actions, Python, base images, Terraform providers and the observability images. Releases younger than 14 days (30 for a major) are skipped; security fixes aren't. Minor and patch updates are grouped; each major gets its own PR. |
+| One pin per version | Observability and k6 images are pinned only in `obs/compose.yaml`; Terraform (`yamldecode`) and CI read them from there, so a bump changes one line and CI tests exactly what deploys. |
+| Verify | The normal CI checks, plus starting the whole observability stack and requiring every component healthy and the app's telemetry to arrive. |
+| Roll out | The normal deploy. Per-component image tags mean an observability bump replaces only the monitoring task. A one-minute k6 smoke run with latency and error thresholds fails the deploy if the upgrade made the app worse. |
+| Undo | Revert the bump PR; the deploy restores the previous version. |
+| Catch the rest | `tool-drift.yml` reports pins inside workflow steps (Terraform, tflint, Trivy, checkov, uv) that are behind or disagree with each other. |
 
 ## Running it
 
