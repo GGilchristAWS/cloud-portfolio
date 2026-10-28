@@ -48,7 +48,7 @@ Telemetry lives as long as the monitoring task (the stack is torn down nightly);
 
 | Path | Lifecycle | Contents |
 |---|---|---|
-| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX), ACM certificate, repository settings and ruleset |
+| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX, a 60 s negative TTL so the site resolves soon after a deploy), ACM certificate, repository settings and ruleset |
 | `infra/` | Ephemeral (~$1/day while up), applied by CI | VPC, ALB (HTTPS + redirect), app and Grafana DNS aliases, ECS cluster with the app and monitoring services (Service Connect), log groups, alarms |
 | `app/` | | FastAPI app, Dockerfile, tests; OpenTelemetry auto-instrumentation |
 | `obs/` | Ships with the app stack | Collector, Prometheus, Loki, Tempo and Grafana configs and dashboards (as code), built into a config image; `compose.yaml` runs the same stack locally |

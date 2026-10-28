@@ -23,6 +23,21 @@ resource "aws_route53_zone" "main" {
   }
 }
 
+# The app stack creates the app's and Grafana's alias records on deploy and
+# deletes them on teardown, so between sessions resolvers get "no such record"
+# and cache it for the SOA's negative TTL: the smaller of the SOA record's TTL
+# and its last field (Route 53's defaults, 900 and 86400, give 15 minutes).
+# 60 seconds lets the site resolve within a minute of a deploy. Route 53 creates
+# the SOA with the zone, hence allow_overwrite; the other fields are its defaults.
+resource "aws_route53_record" "soa" {
+  zone_id         = aws_route53_zone.main.zone_id
+  name            = var.domain_name
+  type            = "SOA"
+  ttl             = 60
+  allow_overwrite = true
+  records         = ["${aws_route53_zone.main.primary_name_server}. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 60"]
+}
+
 # Only Amazon may issue certificates for this domain and its subdomains.
 resource "aws_route53_record" "caa" {
   zone_id = aws_route53_zone.main.zone_id
