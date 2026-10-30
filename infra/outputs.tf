@@ -1,11 +1,11 @@
 output "app_url" {
   description = "Public URL of the app."
-  value       = "https://${aws_route53_record.app.fqdn}"
+  value       = "https://${local.app_fqdn}"
 }
 
 output "grafana_url" {
   description = "Public URL of the Grafana dashboards."
-  value       = "https://${aws_route53_record.grafana.fqdn}"
+  value       = "https://${local.grafana_fqdn}"
 }
 
 output "cluster_name" {

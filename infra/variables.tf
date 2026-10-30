@@ -79,9 +79,15 @@ variable "monitoring_memory" {
 }
 
 variable "desired_count" {
-  description = "Number of app tasks. Two spread across both availability zones, so dashboards show load balancing."
+  description = "App tasks at launch, and the fewest autoscaling keeps. Two spread across both availability zones, so dashboards show load balancing."
   type        = number
   default     = 2
+}
+
+variable "max_count" {
+  description = "Most app tasks autoscaling may run (scaling.tf). 20 keeps the worst case under about $200/month; see the cost note there."
+  type        = number
+  default     = 20
 }
 
 variable "use_spot" {

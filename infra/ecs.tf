@@ -231,6 +231,12 @@ resource "aws_ecs_service" "app" {
   propagate_tags          = "SERVICE"
   enable_ecs_managed_tags = true
 
+  # Autoscaling (scaling.tf) owns the count once the service exists; a push
+  # deploy mid-session mustn't shrink a scaled-out service back to 2.
+  lifecycle {
+    ignore_changes = [desired_count]
+  }
+
   # terraform apply (and therefore the CI deploy job) fails if the rollout does.
   wait_for_steady_state = true
 

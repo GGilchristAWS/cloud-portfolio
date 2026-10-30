@@ -56,17 +56,18 @@
   <nav aria-label="Site">
     {% if static %}
     {# The static resume (scripts/build_site.py): the demo's pages may be down. #}
-    <a href="/" aria-current="page">Resume</a>
-    <a href="{{ repo_url }}">Source</a>
+    {# The "demo is off" page is served at demo.<domain>, so it links back by full URL. #}
+    <a href="{{ site_url | default('/') }}" {% if page == "resume" %}aria-current="page"{% endif %}>Resume</a>
+    <a href="{{ repo_url }}" target="_blank" rel="noopener">Source</a>
     {% else %}
     <a href="/" {% if page == "home" %}aria-current="page"{% endif %}>Home</a>
     <a href="/resume" {% if page == "resume" %}aria-current="page"{% endif %}>Resume</a>
-    <a href="{{ grafana_url }}">Live dashboards</a>
-    <a href="{{ repo_url }}">Source</a>
+    <a href="{{ grafana_url }}" target="_blank" rel="noopener">Live dashboards</a>
+    <a href="{{ repo_url }}" target="_blank" rel="noopener">Source</a>
     {% endif %}
   </nav>
   {% block content %}{% endblock %}
-  <footer>Source and architecture: <a href="{{ repo_url }}">{{ repo_url }}</a></footer>
+  <footer>Source and architecture: <a href="{{ repo_url }}" target="_blank" rel="noopener">{{ repo_url }}</a></footer>
 </main>
 </body>
 </html>

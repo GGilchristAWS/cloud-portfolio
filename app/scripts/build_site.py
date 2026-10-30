@@ -2,7 +2,8 @@
 
 It uses the app's own templates and resume.toml, so the static resume and the
 demo's /resume page can't drift apart. Optional media (a walkthrough link,
-screenshots) comes from site/media.toml. CI uploads the output to S3.
+screenshots) comes from site/media.toml. Also writes the page CloudFront shows
+in place of the demo while it's off. CI uploads the output to S3.
 
     uv run python scripts/build_site.py <out-dir>
 """
@@ -14,7 +15,9 @@ from pathlib import Path
 
 from portfolio.main import resume, templates
 
+SITE_URL = "https://portfolio.geoffgilchrist.com"
 DEMO_URL = "https://demo.portfolio.geoffgilchrist.com"
+OFFLINE_PAGE = "demo-offline.html"  # bootstrap/edge.tf serves it by this name
 SITE_DIR = Path(__file__).parent.parent / "site"
 
 
@@ -30,6 +33,10 @@ def build(out: Path, media: dict | None = None) -> None:
     )
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(page, encoding="utf-8")
+    offline = templates.get_template("offline.html").render(
+        page="offline", static=True, site_url=SITE_URL
+    )
+    (out / OFFLINE_PAGE).write_text(offline, encoding="utf-8")
     for shot in media.get("screenshots", []):
         (out / "media").mkdir(exist_ok=True)
         shutil.copy2(SITE_DIR / shot["file"], out / "media" / shot["file"])

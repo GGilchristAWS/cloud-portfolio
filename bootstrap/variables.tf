@@ -73,3 +73,21 @@ variable "demo_session_minutes" {
   type        = number
   default     = 120
 }
+
+variable "waf_enabled" {
+  description = "Put the WAF web ACL (per-IP rate limit, AWS IP reputation list) in front of all three distributions. About $7/month while on; turn on when abuse is seen (edge.tf)."
+  type        = bool
+  default     = false
+}
+
+variable "waf_rate_limit" {
+  description = "Requests per IP per 5 minutes before WAF blocks it. 2000 is about 7 a second, far above a person browsing the dashboards."
+  type        = number
+  default     = 2000
+}
+
+variable "edge_requests_alarm" {
+  description = "Requests in 15 minutes, across the resume, demo and Grafana, that set off the traffic alarm (edge.tf). The burst load test peaks near 36,000."
+  type        = number
+  default     = 100000
+}

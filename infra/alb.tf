@@ -1,5 +1,16 @@
-# HTTPS on 443 with the bootstrap stack's ACM certificate; port 80 only
-# redirects to HTTPS. TLS terminates here; ALB-to-task traffic stays in the VPC.
+# HTTPS on 443 with the bootstrap stack's ACM certificate, from CloudFront
+# only (bootstrap/edge.tf): the security group admits CloudFront's address
+# ranges, and the listener forwards only requests carrying the X-Origin-Verify
+# header that our distributions add. Anything else gets a 403. TLS terminates
+# here; ALB-to-task traffic stays in the VPC.
+
+locals {
+  origin_verify_header = "X-Origin-Verify"
+}
+
+data "aws_ssm_parameter" "origin_verify" {
+  name = "/${var.project}/edge/origin-verify"
+}
 
 resource "aws_lb" "this" {
   name               = var.project
@@ -12,7 +23,7 @@ resource "aws_lb" "this" {
 
   #checkov:skip=CKV_AWS_150:On-demand demo stack, destroyed after every session by design
   #checkov:skip=CKV_AWS_91:Access logs need an S3 bucket with an ELB policy; not worth it for a demo
-  #checkov:skip=CKV2_AWS_28:WAF costs $5+/month per web ACL plus rules
+  #checkov:skip=CKV2_AWS_28:Only CloudFront reaches it; WAF, when on, sits there (bootstrap/edge.tf)
 }
 
 resource "aws_lb_target_group" "app" {
@@ -50,23 +61,30 @@ resource "aws_lb_listener" "https" {
   routing_http_response_strict_transport_security_header_value = "max-age=31536000; includeSubDomains"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Forbidden"
+      status_code  = "403"
+    }
   }
 }
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.this.arn
-  port              = 80
-  protocol          = "HTTP"
+# Grafana's rules (observability.tf) come first, at priorities 10 and 20.
+resource "aws_lb_listener_rule" "app" {
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 100
 
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+  condition {
+    http_header {
+      http_header_name = local.origin_verify_header
+      values           = [data.aws_ssm_parameter.origin_verify.value]
     }
+  }
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
   }
 }

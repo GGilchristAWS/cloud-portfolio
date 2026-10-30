@@ -36,12 +36,23 @@
     .shots figure { margin: 0; }
     .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; }
     .shots figcaption { color: var(--muted); font-size: 0.9rem; }
+    .shots a { cursor: zoom-in; }
+    #shot-viewer { max-width: 100vw; max-height: 100vh; padding: 48px 16px 16px; border: 0; background: transparent; }
+    #shot-viewer::backdrop { background: rgb(0 0 0 / 0.85); }
+    #shot-viewer figure { margin: 0; }
+    #shot-viewer img { display: block; max-width: min(1600px, 100%); max-height: calc(100vh - 120px); margin: 0 auto; border-radius: 6px; }
+    #shot-viewer figcaption { color: #ecebe6; text-align: center; margin-top: 8px; }
+    #shot-viewer .close {
+      position: fixed; top: 12px; right: 16px; width: 40px; height: 40px; border: 0; border-radius: 50%;
+      background: rgb(255 255 255 / 0.15); color: #fff; font-size: 1.8rem; line-height: 1; cursor: pointer;
+    }
+    #shot-viewer .close:hover, #shot-viewer .close:focus-visible { background: rgb(255 255 255 / 0.3); }
 {% endblock %}
 {% block content %}
   {% set p = resume.profile %}
   <h1>{{ p.name }}</h1>
   <p class="lede">{{ p.title }}</p>
-  <p class="contact"><a href="mailto:{{ p.email }}">{{ p.email }}</a><a href="{{ p.linkedin }}">LinkedIn</a></p>
+  <p class="contact"><a href="mailto:{{ p.email }}">{{ p.email }}</a><a href="{{ p.linkedin }}" target="_blank" rel="noopener">LinkedIn</a></p>
   <p class="print-hint no-print">Need a PDF? Print this page and choose "Save as PDF".</p>
   {% if static %}{% include "demo_launcher.html" %}{% endif %}
 

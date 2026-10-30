@@ -47,3 +47,13 @@ output "launcher_token_parameter" {
   description = "SSM parameter to store the demo launcher's GitHub token in (see launcher.tf)."
   value       = aws_ssm_parameter.launcher_github_token.name
 }
+
+output "blocklist_kvs_arn" {
+  description = "CloudFront key value store of blocked viewer IPs (scripts/edge.sh)."
+  value       = aws_cloudfront_key_value_store.blocklist.arn
+}
+
+output "edge_log_group" {
+  description = "CloudWatch Logs group (us-east-1) with the access logs of all three distributions."
+  value       = aws_cloudwatch_log_group.edge.name
+}

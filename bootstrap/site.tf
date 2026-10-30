@@ -1,7 +1,8 @@
 # The always-on front door: the resume as a static page at the zone apex,
 # served by CloudFront from a private S3 bucket, with the demo launcher
 # (launcher.tf) under /api/. The demo itself (infra/) runs only on demand, at
-# demo.<domain>. Costs cents a month; CI uploads the page (deploy.yml).
+# demo.<domain>, behind its own distribution (edge.tf). Costs cents a month;
+# CI uploads the page (deploy.yml).
 #
 #   https://<domain>  -> CloudFront -+-> /*      S3 (index.html)
 #                                    +-> /api/*  launcher function URL
@@ -44,7 +45,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "site" {
   }
 }
 
-# Only this distribution may read the bucket.
+# Only these distributions may read the bucket: this one, and the demo's for
+# its "demo is off" page (edge.tf).
 data "aws_iam_policy_document" "site_bucket" {
   statement {
     actions   = ["s3:GetObject"]
@@ -58,7 +60,7 @@ data "aws_iam_policy_document" "site_bucket" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceArn"
-      values   = [aws_cloudfront_distribution.site.arn]
+      values   = [for d in local.distributions : d.arn]
     }
   }
 }
@@ -150,6 +152,7 @@ resource "aws_cloudfront_distribution" "site" {
   http_version        = "http2and3"
   is_ipv6_enabled     = true
   price_class         = "PriceClass_100"
+  web_acl_id          = local.web_acl_arn # edge.tf
 
   origin {
     origin_id                = "site"
@@ -178,6 +181,11 @@ resource "aws_cloudfront_distribution" "site" {
     compress                   = true
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.blocklist.arn # edge.tf
+    }
   }
 
   ordered_cache_behavior {
@@ -190,6 +198,11 @@ resource "aws_cloudfront_distribution" "site" {
     cache_policy_id            = data.aws_cloudfront_cache_policy.disabled.id
     origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_except_host.id
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.blocklist.arn
+    }
   }
 
   # The bucket isn't listable, so a missing page is a 403 from S3. Any unknown
@@ -212,9 +225,9 @@ resource "aws_cloudfront_distribution" "site" {
     minimum_protocol_version = "TLSv1.2_2021"
   }
 
-  #checkov:skip=CKV_AWS_68:WAF costs $5+/month per web ACL plus rules
-  #checkov:skip=CKV2_AWS_47:WAF costs $5+/month per web ACL plus rules
-  #checkov:skip=CKV_AWS_86:Access logs need a logging bucket; not worth it for one static page
+  #checkov:skip=CKV_AWS_68:WAF is optional (var.waf_enabled, edge.tf), turned on only when abuse is seen
+  #checkov:skip=CKV2_AWS_47:WAF is optional (var.waf_enabled, edge.tf), turned on only when abuse is seen
+  #checkov:skip=CKV_AWS_86:Access logs go to CloudWatch Logs through a log delivery (edge.tf)
   #checkov:skip=CKV_AWS_310:One origin per path; S3 and Lambda are already regional and highly available
   #checkov:skip=CKV_AWS_374:A public resume; no country is excluded
 }

@@ -66,24 +66,19 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.this.id
 }
 
+# CloudFront's origin-facing ranges, as an AWS-managed prefix list. It counts
+# as about 55 rules toward the group's limit of 60, so it gets one port only.
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
   security_group_id = aws_security_group.alb.id
-  description       = "HTTPS from the internet"
-  cidr_ipv4         = "0.0.0.0/0"
+  description       = "HTTPS from CloudFront only"
+  prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront.id
   ip_protocol       = "tcp"
   from_port         = 443
   to_port           = 443
-}
-
-resource "aws_vpc_security_group_ingress_rule" "alb_http" {
-  security_group_id = aws_security_group.alb.id
-  description       = "HTTP from the internet (redirected to HTTPS)"
-  cidr_ipv4         = "0.0.0.0/0"
-  ip_protocol       = "tcp"
-  from_port         = 80
-  to_port           = 80
-
-  #checkov:skip=CKV_AWS_260:Port 80 only serves a redirect to HTTPS
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_tasks" {
