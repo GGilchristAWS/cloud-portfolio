@@ -10,7 +10,8 @@ locals {
   # would let the deploy role grant itself new permissions through a task.
   attachable_policies = [
     "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
-    "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess", # Grafana's CloudWatch data source
+    "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess", # until running stacks detach it; remove after
+    aws_iam_policy.grafana_cloudwatch_metrics.arn,      # Grafana's CloudWatch data source
     aws_iam_policy.grafana_secret_read.arn,
     aws_iam_policy.load_test_token_read.arn,
   ]

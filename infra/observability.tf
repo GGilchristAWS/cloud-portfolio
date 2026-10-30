@@ -84,9 +84,15 @@ resource "aws_iam_role" "monitoring_task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_trust.json
 }
 
+# Metrics only (bootstrap/observability.tf): anonymous viewers' queries run
+# with this role, so it must not read CloudWatch Logs.
+data "aws_iam_policy" "grafana_cloudwatch_metrics" {
+  name = "${var.project}-grafana-cloudwatch-metrics"
+}
+
 resource "aws_iam_role_policy_attachment" "monitoring_task_cloudwatch" {
   role       = aws_iam_role.monitoring_task.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+  policy_arn = data.aws_iam_policy.grafana_cloudwatch_metrics.arn
 }
 
 resource "aws_ecs_task_definition" "monitoring" {
