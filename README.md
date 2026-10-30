@@ -16,7 +16,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 
 ## Architecture
 
-The resume is always up. Its **Launch the demo** button brings up everything below (about 10
+The resume is always up. Its **Launch the demo** button brings up everything below (about 5
 minutes, through the normal Deploy workflow), and the demo tears itself down two hours after
 launch. Idle, the whole project costs about $1 a month (the Route 53 zone and its queries); each
 two-hour demo session adds about $0.25 (estimated from AWS prices: the ALB, public IPv4 addresses
@@ -103,7 +103,7 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 
 ## Running it
 
-- **Bring the demo up**: the **Launch the demo** button on the resume, or Actions → Deploy → Run workflow. Takes about 10 minutes. Either way it is torn down two hours later; run Actions → Keep up after a manual Deploy to keep it until you run Teardown. Visitors can extend a session by an hour, once. Both kinds of launch count toward the daily cap of 4, and each launch from the page emails you (browser and referrer).
+- **Bring the demo up**: the **Launch the demo** button on the resume, or Actions → Deploy → Run workflow. Takes about 5 minutes. Either way it is torn down two hours later; run Actions → Keep up after a manual Deploy to keep it until you run Teardown. Visitors can extend a session by an hour, once. Both kinds of launch count toward the daily cap of 4, and each launch from the page emails you (browser and referrer).
 - **Take it down**: Actions → Teardown → Run workflow, or wait for the scheduled teardown.
 - **Launcher token**: a fine-grained GitHub token for this repository only, with Actions read and write, stored in SSM. When it expires (at most a year), the launcher's alarm emails you and the resume shows the launcher as unavailable; create a new one and store it:
   `read -rsp "Token: " t; aws ssm put-parameter --overwrite --type SecureString --name /cloud-portfolio/launcher/github-token --value "$t"; unset t`

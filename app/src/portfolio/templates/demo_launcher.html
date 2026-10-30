@@ -2,7 +2,7 @@
 <section class="card demo no-print" aria-live="polite">
   <h3>Live demo</h3>
   <p>The portfolio behind this resume is a containerized app on AWS with its own monitoring
-    stack. It runs on demand: launching it runs the real deploy pipeline (about 10 minutes),
+    stack. It runs on demand: launching it runs the real deploy pipeline (about 5 minutes),
     and it shuts itself down two hours later. <a href="#how-it-works">How it works</a></p>
   <p id="demo-status">Checking whether the demo is running…</p>
   <p id="demo-watch" hidden>While it builds, you can
@@ -22,7 +22,7 @@
   const until = (s) => (s.until ? ` until ${time(s.until)}` : "");
   const messages = {
     down: () => "The demo is off right now.",
-    starting: (s) => `Starting up, ready in about 10 minutes. It will run${until(s)}.`,
+    starting: (s) => `Starting up, ready in about 5 minutes. It will run${until(s)}.`,
     up: (s) => `The demo is running${until(s)}.`,
     stopping: () => "The demo is shutting down. It can be launched again in a few minutes.",
   };
