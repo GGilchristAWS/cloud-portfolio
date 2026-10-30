@@ -6,13 +6,24 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 - **Keyless CI/CD**: GitHub Actions authenticates to AWS via OIDC; no access keys exist anywhere
 - **Least privilege**: a read-only plan role for pull requests and a scoped deploy role usable only from the protected `production` environment
 - **Supply-chain hygiene**: Actions pinned to commit SHAs, immutable image tags, image and IaC scanning on every PR, Dependabot with a 7-day cooldown
-- **Cost engineering**: Fargate Spot, no NAT gateway, budgets and anomaly alerts, and an app stack destroyed every night
+- **Cost engineering**: Fargate Spot, no NAT gateway, budgets and anomaly alerts, and a demo that runs only on demand: a static resume launches it, and it tears itself down after two hours
 - **Observability**: OpenTelemetry traces, metrics and logs in a self-hosted Prometheus, Tempo, Loki and Grafana stack, with dashboards and alert rules as code and the monitoring stack monitoring itself
 
 ## Architecture
 
+The resume at https://portfolio.geoffgilchrist.com is always up and costs cents a month. Its
+**Launch the demo** button brings up everything below (about 10 minutes, through the normal
+Deploy workflow), and the demo tears itself down two hours after launch.
+
 ```
-  https://portfolio.geoffgilchrist.com                     https://grafana.portfolio.geoffgilchrist.com
+ https://portfolio.geoffgilchrist.com ─▶ CloudFront ─┬─ /*      ─▶ S3: static resume (rendered from the app's templates)
+                                                     └─ /api/*  ─▶ Lambda launcher ─▶ GitHub Actions Deploy (launch)
+                                                                    ▲              └─▶ EventBridge Scheduler, +2 h ─▶ Teardown
+                                                                    └── capped at 4 launches a day; status for the page
+```
+
+```
+  https://demo.portfolio.geoffgilchrist.com                https://grafana.portfolio.geoffgilchrist.com
                     │                                                            │
                     │   Route 53 aliases (portfolio.geoffgilchrist.com zone)     │
                     ▼                                                            ▼
@@ -44,12 +55,13 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 | Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
 | Load tests | **k6** scenarios (smoke, ramp, spike, soak, and a ~1 h burn-in running all four) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
 
-Telemetry lives as long as the monitoring task (the stack is torn down nightly); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
+Telemetry lives as long as the monitoring task (one demo session); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
 
 | Path | Lifecycle | Contents |
 |---|---|---|
-| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX, a 60 s negative TTL so the site resolves soon after a deploy), ACM certificate, repository settings and ruleset |
-| `infra/` | Ephemeral (~$1/day while up), applied by CI | VPC, ALB (HTTPS + redirect), app and Grafana DNS aliases, ECS cluster with the app and monitoring services (Service Connect), log groups, alarms |
+| `bootstrap/` | Long-lived, applied locally by an admin | State bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, Route 53 zone (CAA, no-mail SPF/DKIM/DMARC/null MX, a 60 s negative TTL so the site resolves soon after a deploy), ACM certificates, the static resume (S3 + CloudFront) and the demo launcher (Lambda, Scheduler role, token parameter, error alarm), repository settings and ruleset |
+| `launcher/` | Deployed with `bootstrap/` | The demo launcher's Lambda: start (with a daily cap), status, and the scheduled teardown |
+| `infra/` | On demand (about $0.25 per two-hour session), applied by CI | VPC, ALB (HTTPS + redirect), app and Grafana DNS aliases, ECS cluster with the app and monitoring services (Service Connect), log groups, alarms |
 | `app/` | | FastAPI app, Dockerfile, tests; OpenTelemetry auto-instrumentation |
 | `obs/` | Ships with the app stack | Collector, Prometheus, Loki, Tempo and Grafana configs and dashboards (as code), built into a config image; `compose.yaml` runs the same stack locally |
 | `loadtest/` | Run on demand | k6 scenarios against the app's token-protected `/api/simulate` endpoint |
@@ -61,9 +73,9 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci.yml` | Pull request | Ruff + pytest; image builds + Trivy (fails on fixable CRITICAL); observability configs checked by each tool's own validator; `terraform fmt`/`validate`, tflint, Checkov; `terraform plan` of the app stack as the read-only plan role |
-| `deploy.yml` | Push to `main` (app/infra/obs changes), or manual | Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role, smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
+| `deploy.yml` | Push to `main` (app/infra/obs changes), or manual (the launcher, or Run workflow) | Publishes the static resume. Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role (on a push, only while the demo is up), smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
 | `load-test.yml` | Manual | Runs a k6 scenario against production; the job summary links to the dashboard for that time window |
-| `teardown.yml` | Nightly 07:00 UTC, or manual | Destroys the app stack |
+| `teardown.yml` | The launcher, two hours after a launch, or manual | Destroys the app stack |
 | `tool-drift.yml` | Monthly, or manual | Reports CI tool versions Dependabot can't update and keeps one issue open while any are behind |
 
 `main` accepts changes only through pull requests that pass all four CI checks (no bypass, including for admins).
@@ -81,8 +93,9 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 
 ## Running it
 
-- **Bring the app up**: Actions → Deploy → Run workflow. Takes about 5 minutes; the URL is shown on the run.
-- **Take it down**: Actions → Teardown → Run workflow, or wait for the nightly run.
+- **Bring the demo up**: the **Launch the demo** button on the resume, or Actions → Deploy → Run workflow. Takes about 10 minutes. A launch from the button is torn down two hours later; a manual run stays up until you run Teardown. Both count toward the daily cap of 4.
+- **Take it down**: Actions → Teardown → Run workflow, or wait for the scheduled teardown.
+- **Launcher token**: a fine-grained GitHub token for this repository only, with Actions read and write, stored in SSM: `aws ssm put-parameter --overwrite --type SecureString --name /cloud-portfolio/launcher/github-token --value file://token.txt`. When it expires, the launcher's alarm emails you and the resume shows the launcher as unavailable.
 - **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
 - **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour; `art` paints a pixel-art Starry Night (or any short text) on the latency heatmap.
 - **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.

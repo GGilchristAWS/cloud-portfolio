@@ -1,0 +1,5 @@
+# The app's lint rules, so both Python codebases read the same.
+extend = "../app/pyproject.toml"
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]

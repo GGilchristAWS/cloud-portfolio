@@ -1,0 +1,61 @@
+{# Static site only: the demo runs on demand (launcher/handler.py behind /api/demo). #}
+<section class="card demo no-print" aria-live="polite">
+  <h3>Live demo</h3>
+  <p>The portfolio behind this resume is a containerized app on AWS with its own monitoring
+    stack. It runs on demand: launching it runs the real deploy pipeline (about 10 minutes),
+    and it shuts itself down two hours after launch.</p>
+  <p id="demo-status">Checking whether the demo is running…</p>
+  <button id="demo-launch" type="button" hidden>Launch the demo</button>
+  <p id="demo-links" hidden><a href="{{ demo_url }}">Open the demo</a> ·
+    <a href="{{ grafana_url }}">Live dashboards</a></p>
+  <p><a href="{{ repo_url }}">Read the source</a></p>
+</section>
+<script>
+(() => {
+  const status = document.getElementById("demo-status");
+  const button = document.getElementById("demo-launch");
+  const links = document.getElementById("demo-links");
+  const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const until = (s) => (s.until ? ` until ${time(s.until)}` : "");
+  const messages = {
+    down: () => "The demo is off right now.",
+    starting: (s) => `Starting up, ready in about 10 minutes. It will run${until(s)}.`,
+    up: (s) => `The demo is running${until(s)}.`,
+    stopping: () => "The demo is shutting down. It can be launched again in a few minutes.",
+  };
+  let timer;
+
+  function show(s) {
+    status.textContent = s.limit_reached
+      ? "The demo has been launched as often as it can be today. Try again tomorrow, or email me."
+      : messages[s.state](s);
+    button.hidden = s.state !== "down" || Boolean(s.limit_reached);
+    links.hidden = s.state !== "up";
+    clearTimeout(timer);
+    if (s.state === "starting" || s.state === "stopping") timer = setTimeout(refresh, 20000);
+  }
+
+  async function refresh(method = "GET") {
+    // CloudFront signs requests to the launcher (origin access control), and a
+    // signed POST needs its body's SHA-256: this is the hash of an empty body.
+    const headers = method === "POST"
+      ? { "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+      : {};
+    try {
+      const resp = await fetch("/api/demo", { method, headers });
+      if (!resp.ok) throw new Error(`launcher answered ${resp.status}`);
+      show(await resp.json());
+    } catch {
+      status.textContent = "The demo launcher is unavailable right now. Email me and I'll bring the demo up.";
+      button.hidden = true;
+    }
+  }
+
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    await refresh("POST");
+    button.disabled = false;
+  });
+  refresh();
+})();
+</script>

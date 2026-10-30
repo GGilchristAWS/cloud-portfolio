@@ -38,6 +38,11 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest
+      # The demo launcher (bootstrap/launcher.tf) has no dependencies of its
+      # own, so it is checked with the app's tools and rules.
+      - run: uv run ruff check ../launcher
+      - run: uv run ruff format --check ../launcher
+      - run: uv run pytest ../launcher/tests
 
   image:
     name: "Image: build & scan"

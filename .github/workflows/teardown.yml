@@ -1,11 +1,10 @@
-# Cost guardrail: destroy the app stack every night so a forgotten demo costs
-# at most a day. Bring it back with the Deploy workflow (Run workflow).
-# The bootstrap stack (state, ECR, budgets, roles) is never touched.
+# Destroy the demo (the app stack). The launcher (launcher/handler.py) runs
+# this a session length after each launch; it can also be run by hand. The
+# bootstrap stack (state, ECR, budgets, roles, the static resume) is never
+# touched.
 name: Teardown
 
 on:
-  schedule:
-    - cron: "0 7 * * *" # 07:00 UTC = midnight Pacific (daylight time)
   workflow_dispatch:
 
 permissions:
@@ -57,6 +56,6 @@ jobs:
           echo "App stack destroyed." >> "$GITHUB_STEP_SUMMARY"
 
 # New Achievement! Ephemeral Infrastructure.
-# You've built something that dies every night at 07:00 UTC and comes back
-# like nothing happened. Rewards: a $10 monthly budget and a Bronze Cost
+# You've built something that lives two hours at a time and only when
+# someone asks for it. Rewards: a $10 monthly budget and a Silver Cost
 # Optimization Box.

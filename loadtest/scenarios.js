@@ -21,7 +21,7 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { artGrid, COLUMN_SECONDS, preview, RATE_PER_PIXEL, ROW_LATENCY_MS } from "./art.js";
 
-const BASE_URL = __ENV.BASE_URL || "https://portfolio.geoffgilchrist.com";
+const BASE_URL = __ENV.BASE_URL || "https://demo.portfolio.geoffgilchrist.com";
 const SCENARIO = __ENV.SCENARIO || "smoke";
 const SOAK_MINUTES = Number(__ENV.SOAK_MINUTES || 30);
 const GAP_SECONDS = 180;

@@ -1,5 +1,7 @@
-# Build, push and deploy main. Also used to bring the stack back up after the
-# nightly teardown (Actions tab -> Deploy -> Run workflow).
+# Build and push main's images, publish the static resume, and deploy the
+# demo. The demo runs on demand, so a push applies only while it's up; a
+# workflow_dispatch (the resume page's launcher, or Actions -> Deploy -> Run
+# workflow) always applies, bringing it up.
 name: Deploy
 
 on:
@@ -24,6 +26,7 @@ concurrency:
 env:
   TF_VERSION: 1.16.5
   TF_IN_AUTOMATION: "1"
+  UV_VERSION: 0.13.0
 
 jobs:
   deploy:
@@ -129,8 +132,22 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
+      # Images are built either way, so the next launch deploys this commit.
+      - name: Decide whether to apply
+        id: target
+        working-directory: infra
+        run: |
+          terraform init -input=false
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ -n "$(terraform state list)" ]; then
+            echo "apply=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "apply=false" >> "$GITHUB_OUTPUT"
+            echo "The demo is down, so this push only built images." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: terraform apply
         id: apply
+        if: steps.target.outputs.apply == 'true'
         working-directory: infra
         env:
           TF_VAR_image_tag: ${{ steps.tags.outputs.app }}
@@ -145,6 +162,7 @@ jobs:
       # The service only reaches steady state once the new task is healthy, but
       # confirm the load balancer is actually serving the app's commit.
       - name: Smoke test
+        if: steps.target.outputs.apply == 'true'
         env:
           APP_URL: ${{ steps.apply.outputs.app_url }}
           IMAGE_TAG: ${{ steps.tags.outputs.app }}
@@ -166,6 +184,7 @@ jobs:
       # error thresholds, so an upgrade that slows or breaks the app fails
       # its deploy instead of only showing up on the dashboards.
       - name: k6 smoke test
+        if: steps.target.outputs.apply == 'true'
         env:
           LOAD_TEST_TOKEN: ${{ secrets.LOAD_TEST_TOKEN }}
           BASE_URL: ${{ steps.apply.outputs.app_url }}
@@ -174,6 +193,7 @@ jobs:
           cat loadtest/summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Smoke test Grafana
+        if: steps.target.outputs.apply == 'true'
         env:
           GRAFANA_URL: ${{ steps.apply.outputs.grafana_url }}
         run: |
@@ -188,3 +208,41 @@ jobs:
           done
           echo "::error::Grafana is not healthy at $GRAFANA_URL"
           exit 1
+
+  # The always-on resume (bootstrap/site.tf), rendered from the app's templates.
+  site:
+    name: Publish the static resume
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Build the page
+        working-directory: app
+        run: |
+          uv sync --locked --no-dev
+          uv run --no-sync python scripts/build_site.py "$RUNNER_TEMP/site"
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Upload and clear the CDN cache
+        env:
+          SITE_BUCKET: ${{ vars.SITE_BUCKET }}
+          SITE_DISTRIBUTION: ${{ vars.SITE_DISTRIBUTION }}
+        run: |
+          aws s3 sync "$RUNNER_TEMP/site" "s3://$SITE_BUCKET" --delete --cache-control "max-age=300"
+          aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" --paths "/*" > /dev/null
+          echo "Published the resume to https://portfolio.geoffgilchrist.com" >> "$GITHUB_STEP_SUMMARY"
