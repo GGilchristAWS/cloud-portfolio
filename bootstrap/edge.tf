@@ -295,57 +295,134 @@ resource "aws_cloudwatch_log_delivery" "edge" {
 
 # --- Traffic alarm ---------------------------------------------------------------
 
-# CloudFront's metrics live in us-east-1, and an alarm notifies only a topic in
-# its own region, so this topic mirrors alerts.tf there.
-resource "aws_sns_topic" "edge_alerts" {
-  region = "us-east-1"
-  name   = "${var.project}-edge-alerts"
-
-  #checkov:skip=CKV_AWS_26:CloudWatch cannot publish to the AWS managed key; see alerts.tf
+# CloudFront's metrics live in us-east-1, and the organization's region policy
+# allows reading them there but not an alarm or a topic. So a small function in
+# this region copies the 15-minute total here every 5 minutes, and the alarm
+# watches that copy. Within Lambda's free tier; the metric and alarm are cents.
+locals {
+  edge_watch_name   = "${var.project}-edge-watch"
+  edge_metric_space = "CloudPortfolio/Edge"
+  edge_metric_name  = "Requests15Minutes"
 }
 
-resource "aws_sns_topic_subscription" "edge_alerts_email" {
-  region    = "us-east-1"
-  topic_arn = aws_sns_topic.edge_alerts.arn
-  protocol  = "email"
-  endpoint  = var.budget_alert_email
+data "archive_file" "edge_watch" {
+  type        = "zip"
+  source_file = "${path.module}/functions/edge_watch.py"
+  output_path = "${path.module}/.terraform/edge_watch.zip"
 }
 
-# Requests to all three distributions together. The burst load test peaks near
-# 36,000 in 15 minutes, so the default threshold leaves room for testing.
-resource "aws_cloudwatch_metric_alarm" "edge_requests" {
-  region              = "us-east-1"
-  alarm_name          = "${var.project}-edge-requests"
-  alarm_description   = "Unusually many requests to the resume, demo and Grafana. Find the busiest IPs with scripts/edge.sh top (README, Unexpected traffic)."
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  threshold           = var.edge_requests_alarm
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = [aws_sns_topic.edge_alerts.arn]
-  ok_actions          = [aws_sns_topic.edge_alerts.arn]
+resource "aws_cloudwatch_log_group" "edge_watch" {
+  name              = "/aws/lambda/${local.edge_watch_name}"
+  retention_in_days = 7
 
-  dynamic "metric_query" {
-    for_each = local.distributions
+  #checkov:skip=CKV_AWS_158:Logs hold no secrets; a KMS key costs $1/month
+  #checkov:skip=CKV_AWS_338:A week is enough to debug a metric copy
+}
 
-    content {
-      id = "r_${metric_query.key}"
+resource "aws_iam_role" "edge_watch" {
+  name               = local.edge_watch_name
+  description        = "Copies CloudFront's request count to this region for the traffic alarm."
+  assume_role_policy = data.aws_iam_policy_document.lambda_trust.json
+}
 
-      metric {
-        namespace   = "AWS/CloudFront"
-        metric_name = "Requests"
-        period      = 900
-        stat        = "Sum"
-        dimensions  = { DistributionId = metric_query.value.id, Region = "Global" }
-      }
+data "aws_iam_policy_document" "edge_watch" {
+  statement {
+    sid       = "Logs"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.edge_watch.arn}:*"]
+  }
+
+  statement {
+    sid       = "ReadMetrics"
+    actions   = ["cloudwatch:GetMetricData"]
+    resources = ["*"] # takes no resource-level permissions
+  }
+
+  statement {
+    sid       = "WriteMetric"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"] # takes no resource-level permissions, only this condition
+
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = [local.edge_metric_space]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "edge_watch" {
+  name   = "edge-watch"
+  role   = aws_iam_role.edge_watch.id
+  policy = data.aws_iam_policy_document.edge_watch.json
+}
+
+resource "aws_lambda_function" "edge_watch" {
+  function_name    = local.edge_watch_name
+  description      = "Copies CloudFront's request count to this region for the traffic alarm."
+  role             = aws_iam_role.edge_watch.arn
+  runtime          = "python3.13"
+  architectures    = ["arm64"]
+  handler          = "edge_watch.handler"
+  filename         = data.archive_file.edge_watch.output_path
+  source_code_hash = data.archive_file.edge_watch.output_base64sha256
+  memory_size      = 128
+  timeout          = 15
+
+  environment {
+    variables = {
+      DISTRIBUTION_IDS = join(",", [for distribution in values(local.distributions) : distribution.id])
+      METRIC_NAMESPACE = local.edge_metric_space
+      METRIC_NAME      = local.edge_metric_name
     }
   }
 
-  metric_query {
-    id          = "total"
-    expression  = "SUM(METRICS())"
-    label       = "Requests, all distributions"
-    return_data = true
-  }
+  depends_on = [aws_cloudwatch_log_group.edge_watch]
+
+  #checkov:skip=CKV_AWS_50:X-Ray adds little to two CloudWatch calls
+  #checkov:skip=CKV_AWS_115:Runs once per schedule; a reservation would take from the account's small pool
+  #checkov:skip=CKV_AWS_116:The next run replaces a failed one, and the alarm reports a gap
+  #checkov:skip=CKV_AWS_117:Calls only public APIs; a VPC would need a NAT gateway
+  #checkov:skip=CKV_AWS_173:The environment holds names, not secrets
+  #checkov:skip=CKV_AWS_272:Code is deployed only by the bootstrap admin from git
+}
+
+resource "aws_cloudwatch_event_rule" "edge_watch" {
+  name                = local.edge_watch_name
+  description         = "Runs the traffic alarm's metric copy."
+  schedule_expression = "rate(5 minutes)"
+}
+
+resource "aws_cloudwatch_event_target" "edge_watch" {
+  rule = aws_cloudwatch_event_rule.edge_watch.name
+  arn  = aws_lambda_function.edge_watch.arn
+}
+
+resource "aws_lambda_permission" "edge_watch_schedule" {
+  statement_id  = "AllowSchedule"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.edge_watch.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.edge_watch.arn
+}
+
+# The burst load test peaks near 36,000 in 15 minutes, so the default threshold
+# leaves room for testing. Each 10-minute period holds at least one copy, so an
+# empty one means the function broke, and that emails too.
+resource "aws_cloudwatch_metric_alarm" "edge_requests" {
+  alarm_name                = "${var.project}-edge-requests"
+  alarm_description         = "Unusually many requests to the resume, demo and Grafana, or INSUFFICIENT_DATA if the ${local.edge_watch_name} function stopped reporting. Find the busiest IPs with scripts/edge.sh top (README, Unexpected traffic)."
+  namespace                 = local.edge_metric_space
+  metric_name               = local.edge_metric_name
+  statistic                 = "Maximum"
+  period                    = 600
+  evaluation_periods        = 1
+  comparison_operator       = "GreaterThanThreshold"
+  threshold                 = var.edge_requests_alarm
+  treat_missing_data        = "missing"
+  alarm_actions             = [aws_sns_topic.alerts.arn]
+  ok_actions                = [aws_sns_topic.alerts.arn]
+  insufficient_data_actions = [aws_sns_topic.alerts.arn]
 }
 
 # --- WAF (only when needed) --------------------------------------------------------
