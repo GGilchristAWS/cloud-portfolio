@@ -200,7 +200,7 @@ resource "aws_iam_role" "launcher_scheduler" {
 data "aws_iam_policy_document" "launcher_scheduler" {
   statement {
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.launcher.arn]
+    resources = [local.launcher_arn]
   }
 }
 

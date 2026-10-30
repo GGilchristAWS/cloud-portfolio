@@ -211,7 +211,7 @@ data "aws_iam_policy_document" "github_deploy_site" {
 data "aws_iam_policy_document" "github_deploy_launcher" {
   statement {
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.launcher.arn]
+    resources = [local.launcher_arn]
   }
 }
 
