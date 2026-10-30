@@ -110,6 +110,7 @@ def test_static_site_has_resume_and_launcher(tmp_path) -> None:
     offline = (tmp_path / build_site.OFFLINE_PAGE).read_text()
     assert "demo is off" in offline
     assert f'href="{build_site.SITE_URL}"' in offline
+    assert 'href="/"' not in offline  # "/" there is the demo, which is off
 
 
 def test_static_site_shows_configured_media(tmp_path) -> None:
