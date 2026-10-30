@@ -11,9 +11,9 @@ variable "domain_name" {
 }
 
 variable "app_subdomain" {
-  description = "Subdomain the app is served on; empty serves it at the zone apex. Must match the app stack."
+  description = "Subdomain the on-demand demo is served on. The apex is the static resume (site.tf). Must match the app stack."
   type        = string
-  default     = ""
+  default     = "demo"
 }
 
 variable "aws_region" {
@@ -60,4 +60,16 @@ variable "anomaly_threshold_usd" {
   description = "Minimum total impact in USD for a cost anomaly alert."
   type        = number
   default     = 3
+}
+
+variable "demo_daily_launches" {
+  description = "Launches of the on-demand demo allowed per day (UTC), from the resume page or by hand."
+  type        = number
+  default     = 4
+}
+
+variable "demo_session_minutes" {
+  description = "Minutes from a launch until the demo is torn down. A deploy takes about 10 of them."
+  type        = number
+  default     = 120
 }

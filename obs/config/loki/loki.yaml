@@ -1,4 +1,4 @@
-# Single-binary Loki on local disk. The task is torn down nightly, so logs
+# Single-binary Loki on local disk. The task lives for one demo session, so logs
 # live as long as the stack does; CloudWatch Logs keeps the durable copy.
 # OTLP logs arrive at /otlp from the collector.
 

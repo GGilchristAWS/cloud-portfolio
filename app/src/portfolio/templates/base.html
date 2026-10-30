@@ -54,10 +54,16 @@
 <body>
 <main>
   <nav aria-label="Site">
+    {% if static %}
+    {# The static resume (scripts/build_site.py): the demo's pages may be down. #}
+    <a href="/" aria-current="page">Resume</a>
+    <a href="{{ repo_url }}">Source</a>
+    {% else %}
     <a href="/" {% if page == "home" %}aria-current="page"{% endif %}>Home</a>
     <a href="/resume" {% if page == "resume" %}aria-current="page"{% endif %}>Resume</a>
     <a href="{{ grafana_url }}">Live dashboards</a>
     <a href="{{ repo_url }}">Source</a>
+    {% endif %}
   </nav>
   {% block content %}{% endblock %}
   <footer>Source and architecture: <a href="{{ repo_url }}">{{ repo_url }}</a></footer>

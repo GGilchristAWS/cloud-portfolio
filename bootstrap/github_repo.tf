@@ -110,6 +110,8 @@ resource "github_actions_variable" "repo" {
     AWS_PLAN_ROLE_ARN = aws_iam_role.github_plan.arn
     TF_STATE_BUCKET   = aws_s3_bucket.tfstate.bucket
     ECR_REPOSITORY    = aws_ecr_repository.app.name
+    SITE_BUCKET       = aws_s3_bucket.site.bucket
+    SITE_DISTRIBUTION = aws_cloudfront_distribution.site.id
   }
 
   repository    = github_repository.this.name

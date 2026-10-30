@@ -31,7 +31,7 @@
       "transparent": true,
       "options": {
         "mode": "markdown",
-        "content": "## Portfolio \u00b7 live production telemetry\nMetrics, traces and logs from the app at **portfolio.geoffgilchrist.com**, collected with OpenTelemetry and stored in Prometheus, Tempo and Loki running beside it on ECS Fargate. Click a dot on the latency graph to open that request's trace; every log line links to its trace too."
+        "content": "## Portfolio \u00b7 live production telemetry\nMetrics, traces and logs from the app at **demo.portfolio.geoffgilchrist.com**, collected with OpenTelemetry and stored in Prometheus, Tempo and Loki running beside it on ECS Fargate. Click a dot on the latency graph to open that request's trace; every log line links to its trace too."
       },
       "id": 1,
       "gridPos": {
@@ -3144,7 +3144,7 @@
     {
       "title": "Portfolio",
       "type": "link",
-      "url": "https://portfolio.geoffgilchrist.com",
+      "url": "https://demo.portfolio.geoffgilchrist.com",
       "targetBlank": true
     },
     {

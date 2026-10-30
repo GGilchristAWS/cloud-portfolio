@@ -37,3 +37,13 @@ output "repository_url" {
   description = "GitHub repository URL."
   value       = github_repository.this.html_url
 }
+
+output "site_url" {
+  description = "The static resume, which launches the on-demand demo."
+  value       = "https://${var.domain_name}"
+}
+
+output "launcher_token_parameter" {
+  description = "SSM parameter to store the demo launcher's GitHub token in (see launcher.tf)."
+  value       = aws_ssm_parameter.launcher_github_token.name
+}

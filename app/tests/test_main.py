@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from portfolio.main import app, resume
@@ -91,3 +94,18 @@ def test_simulate_buckets_unknown_scenarios(monkeypatch) -> None:
     monkeypatch.setenv("LOAD_TEST_TOKEN", "test-token")
     headers = {**TOKEN, "X-Load-Test-Scenario": "made-up-name"}
     assert client.get("/api/simulate", headers=headers).json()["scenario"] == "other"
+
+
+def test_static_site_has_resume_and_launcher(tmp_path) -> None:
+    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+    import build_site
+
+    build_site.build(tmp_path)
+    page = (tmp_path / "index.html").read_text()
+    assert resume()["profile"]["name"] in page
+    assert 'id="demo-launch"' in page
+    assert 'href="/resume"' not in page  # the static site has only this page
+
+
+def test_demo_resume_has_no_launcher() -> None:
+    assert 'id="demo-launch"' not in client.get("/resume").text

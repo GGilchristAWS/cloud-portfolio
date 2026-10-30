@@ -17,9 +17,9 @@ variable "domain_name" {
 }
 
 variable "app_subdomain" {
-  description = "Subdomain the app is served on; empty serves it at the zone apex. Must match the bootstrap stack."
+  description = "Subdomain the app is served on (the apex is the bootstrap stack's static resume). Must match the bootstrap stack."
   type        = string
-  default     = ""
+  default     = "demo"
 }
 
 variable "image_tag" {
