@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{# Static site only (scripts/build_site.py): CloudFront shows this at demo.<domain>
+   and grafana.<domain> when the demo isn't answering (bootstrap/edge.tf). #}
+{% block title %}Live demo is off · Geoffrey Gilchrist{% endblock %}
+{% block content %}
+  <h1>The live demo is off right now</h1>
+  <p class="lede">It runs only when someone asks for it, and shuts itself down two hours after launch.</p>
+  <p>Start it from <a href="{{ site_url }}">the resume</a>: it takes about 5 minutes. If it's starting
+    already, reload this page in a minute or two.</p>
+{% endblock %}

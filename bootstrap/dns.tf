@@ -1,6 +1,7 @@
 # DNS and TLS for the app. Both are long-lived: a re-created hosted zone gets
 # new name servers (breaking the registrar delegation), and certificates are
-# slow to issue. Only the app's alias record lives in the ephemeral app stack.
+# slow to issue. Only origin.<domain>, the alias to the session's load
+# balancer, lives in the ephemeral app stack (edge.tf explains why).
 #
 # The zone is a subdomain of geoffgilchrist.com, whose zone lives in the
 # organization's management account (aws-org repo). An NS record there delegates
@@ -23,11 +24,11 @@ resource "aws_route53_zone" "main" {
   }
 }
 
-# The app stack creates the app's and Grafana's alias records on deploy and
-# deletes them on teardown, so between sessions resolvers get "no such record"
-# and cache it for the SOA's negative TTL: the smaller of the SOA record's TTL
-# and its last field (Route 53's defaults, 900 and 86400, give 15 minutes).
-# 60 seconds lets the site resolve within a minute of a deploy. Route 53 creates
+# The app stack creates origin.<domain> on deploy and deletes it on teardown,
+# so between sessions CloudFront gets "no such record" and caches it for the
+# SOA's negative TTL: the smaller of the SOA record's TTL and its last field
+# (Route 53's defaults, 900 and 86400, give 15 minutes). 60 seconds lets the
+# demo answer within a minute of a deploy. Route 53 creates
 # the SOA with the zone, hence allow_overwrite; the other fields are its defaults.
 resource "aws_route53_record" "soa" {
   zone_id         = aws_route53_zone.main.zone_id

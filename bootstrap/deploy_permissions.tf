@@ -16,8 +16,8 @@ locals {
     aws_iam_policy.load_test_token_read.arn,
   ]
 
-  # Names the app stack may point at its load balancer.
-  app_record_names = [lower(local.app_fqdn), "grafana.${lower(var.domain_name)}"]
+  # The one name the app stack may point at its load balancer (edge.tf).
+  app_record_names = [lower(local.origin_fqdn)]
 }
 
 resource "aws_iam_role_policy_attachment" "github_deploy_readonly" {
@@ -54,6 +54,25 @@ data "aws_iam_policy_document" "github_deploy_app" {
   statement {
     sid       = "LoadBalancingAndContainers"
     actions   = ["elasticloadbalancing:*", "ecs:*", "servicediscovery:*"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [var.aws_region]
+    }
+  }
+
+  # Scales the app service on CPU (infra/scaling.tf). Target tracking creates
+  # its own alarms, through the AlarmsAndDashboards actions below.
+  statement {
+    sid = "AppAutoScaling"
+    actions = [
+      "application-autoscaling:RegisterScalableTarget", "application-autoscaling:DeregisterScalableTarget",
+      "application-autoscaling:PutScalingPolicy", "application-autoscaling:DeleteScalingPolicy",
+      "application-autoscaling:TagResource", "application-autoscaling:UntagResource",
+      "application-autoscaling:ListTagsForResource",
+    ]
     resources = ["*"]
 
     condition {
@@ -121,7 +140,8 @@ data "aws_iam_policy_document" "github_deploy_app" {
     }
   }
 
-  # ECS and ELB create their service-linked roles on first use in an account.
+  # ECS, ELB and ECS autoscaling create their service-linked roles on first
+  # use in an account.
   statement {
     sid       = "ServiceLinkedRoles"
     actions   = ["iam:CreateServiceLinkedRole"]
@@ -130,7 +150,7 @@ data "aws_iam_policy_document" "github_deploy_app" {
     condition {
       test     = "StringEquals"
       variable = "iam:AWSServiceName"
-      values   = ["ecs.amazonaws.com", "elasticloadbalancing.amazonaws.com"]
+      values   = ["ecs.amazonaws.com", "elasticloadbalancing.amazonaws.com", "ecs.application-autoscaling.amazonaws.com"]
     }
   }
 
@@ -149,7 +169,7 @@ data "aws_iam_policy_document" "github_deploy_app" {
     resources = [aws_ecr_repository.app.arn, aws_ecr_repository.obs_config.arn]
   }
 
-  # The app stack creates and deletes only the app's and Grafana's alias records.
+  # The app stack creates and deletes only origin.<domain>.
   statement {
     sid       = "AppDnsRecord"
     actions   = ["route53:ChangeResourceRecordSets"]

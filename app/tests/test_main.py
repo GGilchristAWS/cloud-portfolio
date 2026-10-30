@@ -107,6 +107,9 @@ def test_static_site_has_resume_and_launcher(tmp_path) -> None:
     assert 'href="/resume"' not in page  # the static site has only this page
     assert 'id="how-it-works"' in page
     assert "walkthrough" not in page  # no media configured yet
+    offline = (tmp_path / build_site.OFFLINE_PAGE).read_text()
+    assert "demo is off" in offline
+    assert f'href="{build_site.SITE_URL}"' in offline
 
 
 def test_static_site_shows_configured_media(tmp_path) -> None:
@@ -126,6 +129,7 @@ def test_static_site_shows_configured_media(tmp_path) -> None:
     page = (tmp_path / "index.html").read_text()
     assert 'href="https://example.com/tour"' in page
     assert 'src="media/test-shot.webp"' in page
+    assert 'id="shot-viewer"' in page  # screenshots open over the page
     assert (tmp_path / "media" / "test-shot.webp").exists()
 
 

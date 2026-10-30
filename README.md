@@ -20,7 +20,9 @@ The resume is always up. Its **Launch the demo** button brings up everything bel
 minutes, through the normal Deploy workflow), and the demo tears itself down two hours after
 launch. Idle, the whole project costs about $1 a month (the Route 53 zone and its queries); each
 two-hour demo session adds about $0.25 (estimated from AWS prices: the ALB, public IPv4 addresses
-and Fargate Spot).
+and Fargate Spot). CloudFront's always-free tier (10 million requests and 1 TB a month) covers all
+three distributions. Under real load the app scales out to at most 20 tasks, which caps the worst
+case near $180 a month (see [Unexpected traffic](#unexpected-traffic)).
 
 ```
  https://portfolio.geoffgilchrist.com ─▶ CloudFront ─┬─ /*      ─▶ S3: static resume (rendered from the app's templates)
@@ -32,12 +34,16 @@ and Fargate Spot).
 ```
   https://demo.portfolio.geoffgilchrist.com                https://grafana.portfolio.geoffgilchrist.com
                     │                                                            │
-                    │   Route 53 aliases (portfolio.geoffgilchrist.com zone)     │
                     ▼                                                            ▼
-   ALB  :443 TLS 1.3/1.2 · ACM wildcard cert · HSTS · :80 → 301 https · routes by host name
+   CloudFront (permanent, one distribution each) · IP blocklist function · WAF when needed · no caching
+                    │     "demo is off" page from S3 while the demo is down      │
+                    └──────────────▶ origin.portfolio.geoffgilchrist.com ◀────────┘
+                                     (this session's ALB; Host forwarded)
+                    ┌───────────────────────────────┴────────────────────────────┐
+   ALB  :443 TLS 1.3/1.2 · ACM wildcard cert · HSTS · CloudFront ranges + secret header only · routes by host
                     │                                                            │
  ┌──────────────────▼─────────────────────────────────┐            ┌─────────────▼──────────────────────────────────────┐
- │ APP SERVICE · 2 tasks across 2 AZs                 │            │ MONITORING SERVICE · 1 task                        │
+ │ APP SERVICE · 2-20 tasks across 2 AZs (CPU 60%)    │            │ MONITORING SERVICE · 1 task                        │
  │                                                    │            │                                                    │
  │ app :8000   FastAPI + OpenTelemetry                │            │ Grafana :3000  dashboards, alerts (as code)        │
  │    │ OTLP over localhost                           │            │    ▲ PromQL / TraceQL / LogQL                      │
@@ -48,8 +54,8 @@ and Fargate Spot).
  └────────────────────────────────────────────────────┘            └────────────────────────────────────────────────────┘
 
  ECR: app + obs-config images (per component) · CloudWatch Logs: every container · Grafana reads CloudWatch (ALB, ECS)
- Background traffic: k6 in the monitoring task ──▶ ALB ──▶ app, about 3 req/s, so the dashboards are never empty
- Outside the stack: CloudWatch alarms (site down, 5xx, latency, monitoring down) ──▶ SNS ──▶ email
+ Background traffic: k6 in the monitoring task ──▶ CloudFront ──▶ ALB ──▶ app, about 3 req/s, so the dashboards are never empty
+ Outside the stack: CloudWatch alarms (site down, 5xx, latency, monitoring down, scaled out, edge traffic) ──▶ SNS ──▶ email
 ```
 
 ### Observability
@@ -68,9 +74,9 @@ Telemetry lives as long as the monitoring task (one demo session); CloudWatch Lo
 
 | Path | Lifecycle | Contents |
 |---|---|---|
-| `bootstrap/` | Long-lived, applied locally by an admin | The foundation: state bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, repository settings and ruleset. The front door: Route 53 zone (CAA, no-mail records, a 60 s negative TTL so the demo resolves soon after a launch), ACM certificates, the static resume (S3 + CloudFront) and the demo launcher (Lambda, Scheduler role, token parameter, error alarm) |
+| `bootstrap/` | Long-lived, applied locally by an admin | The foundation: state bucket, GitHub OIDC provider and CI roles, ECR, alert topic, budgets and anomaly detection, repository settings and ruleset. The front door: Route 53 zone (CAA, no-mail records, a 60 s negative TTL so the demo resolves soon after a launch), ACM certificates, the static resume (S3 + CloudFront) and the demo launcher (Lambda, Scheduler role, token parameter, error alarm). The demo's and Grafana's CloudFront distributions with their DNS names, the IP blocklist, access logs, the traffic alarm and the optional WAF (`edge.tf`) |
 | `launcher/` | Deployed with `bootstrap/` | The demo launcher's Lambda: status, launch (with a daily cap and an email to the owner), extend, and the teardown timer it sets, cancels and fires |
-| `infra/` | On demand, applied by CI | The demo: VPC, ALB (HTTPS + redirect), app and Grafana DNS aliases, ECS cluster with the app and monitoring services (Service Connect, started side by side), the background-traffic container, log groups, alarms |
+| `infra/` | On demand, applied by CI | The demo: VPC, ALB (HTTPS from CloudFront only), the `origin.` DNS alias CloudFront follows, ECS cluster with the app and monitoring services (Service Connect, started side by side), CPU autoscaling for the app, the background-traffic container, log groups, alarms |
 | `app/` | | FastAPI app, Dockerfile, tests; OpenTelemetry auto-instrumentation |
 | `obs/` | Ships with the app stack | Collector, Prometheus, Loki, Tempo and Grafana configs and dashboards (as code), built into a config image; `compose.yaml` runs the same stack locally |
 | `loadtest/` | Run on demand | k6 scenarios against the app's token-protected `/api/simulate` endpoint |
@@ -122,9 +128,23 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
+## Unexpected traffic
+
+The demo and Grafana sit behind permanent CloudFront distributions, so their names never point at a
+load balancer's recycled IP address, and the load balancer admits only CloudFront (its address
+ranges, plus a secret header our distributions add). Responses get stronger, and only cost more,
+as the traffic gets worse:
+
+| Situation | What happens | Cost |
+|---|---|---|
+| Real visitors, app working hard | Autoscaling keeps average CPU near 60%, from 2 up to 20 tasks, and emails when it scales out. 20 tasks for every hour the demo can run (4 launches of up to 3 hours a day) is about $180 a month at on-demand Fargate prices, a third of that on Spot. CPU-bound traffic only: `/api/simulate` load tests wait rather than compute, so they don't scale it | Fargate per task-hour, while scaled out |
+| Unusual volume | An alarm emails when the resume, demo and Grafana together get more than 100,000 requests in 15 minutes (the burst load test peaks near 36,000). `scripts/edge.sh top` lists the busiest IPs from the access logs | Cents a month |
+| One abusive address | `scripts/edge.sh block <ip> [reason]` adds it to a CloudFront key value store; a CloudFront Function refuses it everywhere within seconds. `unblock` and `list` undo and review | About $0 |
+| Many addresses, or a flood | Set `waf_enabled = true` in `bootstrap/terraform.tfvars` and apply bootstrap: a WAF web ACL on all three distributions blocks any IP over 2,000 requests in 5 minutes (load tests, which carry the token, are exempt) and addresses on AWS's IP reputation list. Turn it off again the same way | About $7 a month while on, plus $0.60 per million requests |
+
 ## Accepted risks
 
-Checkov findings that are deliberate for a low-cost demo are skipped inline on each resource with the reason. In summary: no WAF, no DNSSEC, no KMS customer-managed keys, no ALB or CloudFront access logs or VPC flow logs, short log retention, and tasks with public IPs instead of a NAT gateway (inbound restricted to the ALB security group). The launch button is public on purpose; what it can cost is bounded by the daily cap of 4 launches, the one-hour limit on extensions, and the budget alerts.
+Checkov findings that are deliberate for a low-cost demo are skipped inline on each resource with the reason. In summary: WAF only when abuse is seen (see [Unexpected traffic](#unexpected-traffic)), no DNSSEC, no KMS customer-managed keys, no ALB access logs or VPC flow logs (CloudFront's access logs cover visitors), short log retention, and tasks with public IPs instead of a NAT gateway (inbound restricted to the ALB security group). The launch button is public on purpose; what it can cost is bounded by the daily cap of 4 launches, the one-hour limit on extensions, and the budget alerts.
 
 ## License
 

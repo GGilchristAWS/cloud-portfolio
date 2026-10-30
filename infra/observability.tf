@@ -4,7 +4,7 @@
 # 127.0.0.1 (the same wiring as obs/compose.yaml for local runs).
 #
 #   app task --OTLP--> otel-collector:4318 (ECS Service Connect)
-#   internet --HTTPS--> ALB --host grafana.<domain>--> Grafana :3000
+#   internet --HTTPS--> CloudFront --> ALB --host grafana.<domain>--> Grafana :3000
 #
 # Telemetry lives as long as the task does: one demo session, since the
 # stack is torn down a couple of hours after each launch. The config image is built from obs/ by CI.
@@ -420,21 +420,16 @@ resource "aws_lb_listener_rule" "grafana" {
     }
   }
 
+  condition {
+    http_header {
+      http_header_name = local.origin_verify_header
+      values           = [data.aws_ssm_parameter.origin_verify.value]
+    }
+  }
+
   action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.grafana.arn
-  }
-}
-
-resource "aws_route53_record" "grafana" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = local.grafana_fqdn
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.this.dns_name
-    zone_id                = aws_lb.this.zone_id
-    evaluate_target_health = true
   }
 }
 
