@@ -5,7 +5,24 @@
 # unlisted YouTube or Loom link keeps video out of this repository.
 walkthrough_url = ""
 
-# Screenshots, stored beside this file (WebP or PNG, about 1600 px wide).
-# [[screenshots]]
-# file = "grafana-overview.webp"
-# caption = "Golden signals and the SLO's error budget during a demo session"
+# Screenshots, stored beside this file (WebP or PNG, about 1600 px wide),
+# shown in this order. Captured from a live demo session.
+[[screenshots]]
+file = "grafana-overview.webp"
+caption = "Golden signals and the SLO's error budget during a live demo session"
+
+[[screenshots]]
+file = "grafana-trace.webp"
+caption = "One page request's full trace: the handler, template compile and render, and the response"
+
+[[screenshots]]
+file = "grafana-alerts.webp"
+caption = "A k6 spike test firing the error-rate and SLO burn-rate alerts on purpose"
+
+[[screenshots]]
+file = "grafana-heatmap-art.webp"
+caption = "A k6 load test that paints AWS on the latency heatmap"
+
+[[screenshots]]
+file = "demo-app.webp"
+caption = "The app shows which Fargate task and availability zone answered the request"
