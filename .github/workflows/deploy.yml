@@ -218,6 +218,30 @@ jobs:
           echo "::error::Grafana is not healthy at $GRAFANA_URL"
           exit 1
 
+      # The telemetry path end to end: the monitoring task's background traffic
+      # (obs/config/k6/ambient.js) goes through the load balancer to the app,
+      # whose metrics reach Prometheus through the collector. A break anywhere
+      # (a container that won't start, Service Connect, the collector) fails
+      # here instead of leaving the dashboards quietly empty.
+      - name: Check background traffic reaches the dashboards
+        if: steps.target.outputs.apply == 'true'
+        env:
+          GRAFANA_URL: ${{ steps.apply.outputs.grafana_url }}
+        run: |
+          query='sum(rate(load_test_requests_total{scenario="ambient"}[1m]))'
+          for attempt in $(seq 1 20); do
+            rate=$(curl -fsS --max-time 5 -G "$GRAFANA_URL/api/datasources/proxy/uid/prometheus/api/v1/query" \
+                     --data-urlencode "query=$query" | jq -r '.data.result[0].value[1] // "0"' || echo 0)
+            if awk -v r="$rate" 'BEGIN { exit !(r > 0.5) }'; then
+              echo "Background traffic reaches the dashboards: $rate req/s" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $attempt: ${rate} req/s of background traffic, waiting..."
+            sleep 15
+          done
+          echo "::error::No background traffic in Prometheus; check the monitoring task's traffic container"
+          exit 1
+
   # The always-on resume (bootstrap/site.tf), rendered from the app's templates.
   site:
     name: Publish the static resume

@@ -235,7 +235,8 @@ resource "aws_ecs_service" "app" {
   wait_for_steady_state = true
 
   # Service Connect clients only learn about services that exist when their
-  # tasks start, so the collector's service must be up first.
+  # tasks start, so the collector's service must be created first. Its tasks
+  # needn't be healthy yet: clients pick up endpoints as they register.
   depends_on = [
     aws_lb_listener.https,
     aws_ecs_cluster_capacity_providers.this,
