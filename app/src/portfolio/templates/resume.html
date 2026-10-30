@@ -10,7 +10,9 @@
     .job-head span { color: var(--muted); font-size: 0.95rem; }
     .job ul { margin: 6px 0 0; padding-left: 20px; }
     .job li { margin-bottom: 2px; }
-    .engagements { margin-top: 6px; }
+    .engagements { margin: 8px 0 0 20px; }
+    .engagements h4 { margin: 0; font-size: 0.95rem; font-weight: 600; }
+    .engagements ul { margin: 2px 0 0; }
     .engagements strong { font-weight: 600; }
     .skills { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
     .skills dd { font-family: inherit; }
@@ -57,9 +59,12 @@
       {% for item in job.highlights %}<li>{{ item }}</li>{% endfor %}
     </ul>
     {% if job.engagements %}
-    <ul class="engagements">
-      {% for e in job.engagements %}<li><strong>{{ e.who }}:</strong> {{ e.what }}</li>{% endfor %}
-    </ul>
+    <div class="engagements">
+      <h4>Key Customer Engagements</h4>
+      <ul>
+        {% for e in job.engagements %}<li><strong>{{ e.who }}:</strong> {{ e.what }}</li>{% endfor %}
+      </ul>
+    </div>
     {% endif %}
   </section>
   {% endfor %}
