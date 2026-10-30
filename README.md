@@ -61,7 +61,7 @@ and Fargate Spot).
 | Logs | app logs with trace IDs → agent → gateway → **Loki**; all containers also to CloudWatch Logs | App logs panel; each line links to its trace |
 | AWS view | **CloudWatch** data source (ALB, ECS service metrics) | AWS view row |
 | Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
-| Background traffic | Every session's monitoring task runs **k6** at about 3 req/s (`obs/config/k6/ambient.js`), labeled `ambient`, so the dashboards are alive from the first minutes | Every graph; "Load-test requests by scenario" |
+| Background traffic | Every session's monitoring task runs **k6** at about 3 req/s (`obs/config/k6/ambient.js`), labeled `ambient`, so the dashboards are alive from the first minutes. It pauses while a load test runs, so test results and the `art` picture stay clean | Every graph; "Load-test requests by scenario" |
 | Load tests | **k6** scenarios (smoke, ramp, spike, soak, and a ~1 h burn-in running all four) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
 
 Telemetry lives as long as the monitoring task (one demo session); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana. Their queries run with the monitoring task's role, which reads CloudWatch metrics only, never logs.
