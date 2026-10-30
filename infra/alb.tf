@@ -10,7 +10,7 @@ resource "aws_lb" "this" {
 
   drop_invalid_header_fields = true
 
-  #checkov:skip=CKV_AWS_150:Ephemeral demo stack, destroyed nightly by design
+  #checkov:skip=CKV_AWS_150:The stack is rebuilt by Terraform; teardown must not need a manual step
   #checkov:skip=CKV_AWS_91:Access logs need an S3 bucket with an ELB policy; not worth it for a demo
   #checkov:skip=CKV2_AWS_28:WAF costs $5+/month per web ACL plus rules
 }

@@ -6,7 +6,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 - **Keyless CI/CD**: GitHub Actions authenticates to AWS via OIDC; no access keys exist anywhere
 - **Least privilege**: a read-only plan role for pull requests and a scoped deploy role usable only from the protected `production` environment
 - **Supply-chain hygiene**: Actions pinned to commit SHAs, immutable image tags, image and IaC scanning on every PR, Dependabot with a 7-day cooldown
-- **Cost engineering**: Fargate Spot, no NAT gateway, budgets and anomaly alerts, and an app stack destroyed every night
+- **Cost engineering**: Fargate Spot, no NAT gateway, budgets and anomaly alerts, and an app stack that can be torn down and rebuilt in minutes
 - **Observability**: OpenTelemetry traces, metrics and logs in a self-hosted Prometheus, Tempo, Loki and Grafana stack, with dashboards and alert rules as code and the monitoring stack monitoring itself
 
 ## Architecture
@@ -44,7 +44,7 @@ A containerized web application on AWS, built to demonstrate cloud operations an
 | Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
 | Load tests | **k6** scenarios (smoke, ramp, spike, soak, and a ~1 h burn-in running all four) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
 
-Telemetry lives as long as the monitoring task (the stack is torn down nightly); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
+Telemetry lives as long as the monitoring task (Prometheus keeps one day, on the task's own disk); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
 
 | Path | Lifecycle | Contents |
 |---|---|---|
@@ -63,7 +63,7 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 | `ci.yml` | Pull request | Ruff + pytest; image builds + Trivy (fails on fixable CRITICAL); observability configs checked by each tool's own validator; `terraform fmt`/`validate`, tflint, Checkov; `terraform plan` of the app stack as the read-only plan role |
 | `deploy.yml` | Push to `main` (app/infra/obs changes), or manual | Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role, smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
 | `load-test.yml` | Manual | Runs a k6 scenario against production; the job summary links to the dashboard for that time window |
-| `teardown.yml` | Nightly 07:00 UTC, or manual | Destroys the app stack |
+| `teardown.yml` | Manual | Destroys the app stack |
 | `tool-drift.yml` | Monthly, or manual | Reports CI tool versions Dependabot can't update and keeps one issue open while any are behind |
 
 `main` accepts changes only through pull requests that pass all four CI checks (no bypass, including for admins).
@@ -82,7 +82,7 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 ## Running it
 
 - **Bring the app up**: Actions → Deploy → Run workflow. Takes about 5 minutes; the URL is shown on the run.
-- **Take it down**: Actions → Teardown → Run workflow, or wait for the nightly run.
+- **Take it down**: Actions → Teardown → Run workflow. The site otherwise runs full time.
 - **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
 - **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour; `art` paints a pixel-art Starry Night (or any short text) on the latency heatmap.
 - **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.

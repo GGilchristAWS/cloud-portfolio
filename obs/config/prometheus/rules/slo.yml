@@ -8,7 +8,7 @@
 #
 # Burn rate = observed bad ratio / error budget: at 1 the budget lasts
 # exactly the SLO window; at 14.4 a 30-day budget would be gone in 2 days.
-# Prometheus here keeps at most 24 hours (the stack is rebuilt nightly), so
+# Prometheus here keeps at most 24 hours (1-day retention), so
 # budget figures cover "the last 24 hours" rather than a calendar month.
 
 groups:

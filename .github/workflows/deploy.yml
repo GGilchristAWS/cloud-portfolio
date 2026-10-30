@@ -1,5 +1,5 @@
-# Build, push and deploy main. Also used to bring the stack back up after the
-# nightly teardown (Actions tab -> Deploy -> Run workflow).
+# Build, push and deploy main. Also used to bring the stack back up after a
+# manual teardown (Actions tab -> Deploy -> Run workflow).
 name: Deploy
 
 on:

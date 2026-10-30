@@ -6,8 +6,8 @@
 #   app task --OTLP--> otel-collector:4318 (ECS Service Connect)
 #   internet --HTTPS--> ALB --host grafana.<domain>--> Grafana :3000
 #
-# Telemetry lives as long as the task does; the stack is torn down nightly
-# with the rest of this stack. The config image is built from obs/ by CI.
+# Telemetry lives as long as the task does (Prometheus keeps one day); a
+# teardown or task replacement starts it empty. The config image is built from obs/ by CI.
 
 locals {
   grafana_fqdn = "grafana.${var.domain_name}"

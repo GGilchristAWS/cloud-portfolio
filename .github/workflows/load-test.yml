@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 # Shared with deploy.yml and teardown.yml, so a test never overlaps a
-# deploy or the nightly teardown.
+# deploy or a teardown.
 concurrency:
   group: app-stack
   cancel-in-progress: false
@@ -51,7 +51,7 @@ jobs:
       - name: Check the app is up
         run: |
           if ! curl -fsS --max-time 5 "$APP_URL/health" > /dev/null; then
-            echo "::error::$APP_URL is down (nightly teardown?). Run the Deploy workflow first."
+            echo "::error::$APP_URL is down (torn down?). Run the Deploy workflow first."
             exit 1
           fi
 

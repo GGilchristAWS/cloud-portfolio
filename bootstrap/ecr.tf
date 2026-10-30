@@ -1,5 +1,5 @@
 # The image registry lives here rather than in the app stack so images survive
-# the nightly teardown. Storage for a handful of ~200 MB images costs cents.
+# a teardown of the app stack. Storage for a handful of ~200 MB images costs cents.
 
 resource "aws_ecr_repository" "app" {
   name                 = var.project
