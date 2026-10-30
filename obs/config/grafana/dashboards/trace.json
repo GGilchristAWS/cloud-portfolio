@@ -1,0 +1,69 @@
+{
+  "uid": "trace",
+  "title": "Trace",
+  "description": "One request's trace, opened from the overview's exemplar dots, log lines and Recent traces. A dashboard rather than Explore, so anonymous viewers can open it.",
+  "tags": [
+    "portfolio",
+    "opentelemetry"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 0,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "schemaVersion": 41,
+  "links": [
+    {
+      "title": "Back to the overview",
+      "type": "link",
+      "url": "/d/portfolio-overview",
+      "icon": "dashboard"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "textbox",
+        "name": "traceId",
+        "label": "Trace ID",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "traces",
+      "title": "Trace ${traceId}",
+      "description": "Every span of the request: the app's handler, its template rendering and outbound calls, with timings. Click a span for its attributes.",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "${traceId}"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 26
+      }
+    }
+  ]
+}

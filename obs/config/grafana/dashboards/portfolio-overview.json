@@ -1995,7 +1995,25 @@
       },
       "fieldConfig": {
         "defaults": {},
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "traceID"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View trace",
+                    "url": "/d/trace/trace?var-traceId=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "id": 34,
       "gridPos": {

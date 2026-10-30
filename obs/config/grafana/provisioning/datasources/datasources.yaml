@@ -16,9 +16,12 @@ datasources:
     editable: false
     jsonData:
       timeInterval: 15s
+      # Trace links open the Trace dashboard, not Explore: anonymous viewers
+      # can't use Explore (dashboards/trace.json).
       exemplarTraceIdDestinations:
         - name: trace_id
-          datasourceUid: tempo
+          url: "/d/trace/trace?var-traceId=$${__value.raw}"
+          urlDisplayLabel: View trace
 
   - name: Loki
     uid: loki
@@ -31,8 +34,7 @@ datasources:
         - name: TraceID
           matcherType: label
           matcherRegex: trace_id
-          url: "$${__value.raw}"
-          datasourceUid: tempo
+          url: "/d/trace/trace?var-traceId=$${__value.raw}"
           urlDisplayLabel: View trace
 
   - name: Tempo

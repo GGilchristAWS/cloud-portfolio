@@ -1,5 +1,5 @@
 # Long-lived pieces of the observability stack, which itself runs in the app
-# stack (infra/observability.tf) and is torn down with it each night.
+# stack (infra/observability.tf) and is torn down with it after each demo session.
 
 # Registry for the observability config image: a tiny image holding the
 # collector, Prometheus, Loki, Tempo and Grafana configs and dashboards,
@@ -56,4 +56,39 @@ resource "aws_iam_policy" "grafana_secret_read" {
   name        = "${var.project}-grafana-secret-read"
   description = "Read the Grafana admin password parameter (ECS task execution role)."
   policy      = data.aws_iam_policy_document.grafana_secret_read.json
+}
+
+# Grafana's CloudWatch data source, for the dashboard's AWS view: metrics
+# only. Anonymous viewers' queries run with this role, so it must not reach
+# CloudWatch Logs (the launcher's and the tasks' logs) the way the managed
+# CloudWatchReadOnlyAccess would. Actions are Grafana's documented minimum for
+# metrics. Attached by the app stack to the monitoring task role.
+data "aws_iam_policy_document" "grafana_cloudwatch_metrics" {
+  # These take no resource ARN.
+  statement {
+    sid = "Metrics"
+    actions = [
+      "cloudwatch:ListMetrics", "cloudwatch:GetMetricData", "cloudwatch:DescribeAlarmsForMetric",
+      "ec2:DescribeTags", "ec2:DescribeInstances", "ec2:DescribeRegions", "tag:GetResources",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid       = "Alarms"
+    actions   = ["cloudwatch:DescribeAlarms", "cloudwatch:DescribeAlarmHistory"]
+    resources = ["arn:aws:cloudwatch:${var.aws_region}:${local.account_id}:alarm:*"]
+  }
+
+  statement {
+    sid       = "InsightRules"
+    actions   = ["cloudwatch:GetInsightRuleReport"]
+    resources = ["arn:aws:cloudwatch:${var.aws_region}:${local.account_id}:insight-rule/*"]
+  }
+}
+
+resource "aws_iam_policy" "grafana_cloudwatch_metrics" {
+  name        = "${var.project}-grafana-cloudwatch-metrics"
+  description = "Read CloudWatch metrics, not logs (Grafana's CloudWatch data source)."
+  policy      = data.aws_iam_policy_document.grafana_cloudwatch_metrics.json
 }
