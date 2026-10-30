@@ -1,0 +1,35 @@
+# Keep the demo up past its two-hour timer, until Teardown is run by hand:
+# cancels the pending teardown (launcher/handler.py). Run it after Deploy has
+# started; a later Deploy run sets a new timer.
+name: Keep up
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keep-up:
+    name: Cancel the teardown timer
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Cancel the teardown
+        env:
+          LAUNCHER_FUNCTION: ${{ vars.LAUNCHER_FUNCTION }}
+        run: |
+          scripts/launcher-action.sh cancel_teardown
+          echo "Kept up: run Teardown when you're done." >> "$GITHUB_STEP_SUMMARY"

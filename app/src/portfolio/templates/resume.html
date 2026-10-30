@@ -22,6 +22,18 @@
       background: var(--accent); color: var(--card); font: inherit; font-weight: 600;
     }
     .demo button:disabled { opacity: 0.6; cursor: wait; }
+    .demo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .demo button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .pipeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); counter-reset: step; }
+    .pipeline li { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+    .pipeline strong { display: block; counter-increment: step; }
+    .pipeline strong::before { content: counter(step) ". "; color: var(--accent); }
+    .pipeline span { color: var(--muted); font-size: 0.9rem; }
+    .shots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 16px; }
+    .shots figure { margin: 0; }
+    .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; }
+    .shots figcaption { color: var(--muted); font-size: 0.9rem; }
 {% endblock %}
 {% block content %}
   {% set p = resume.profile %}
@@ -63,4 +75,5 @@
   <ul>
     {% for cert in resume.certifications %}<li>{{ cert.name }}</li>{% endfor %}
   </ul>
+  {% if static %}{% include "demo_inside.html" %}{% endif %}
 {% endblock %}

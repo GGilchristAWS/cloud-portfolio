@@ -22,6 +22,7 @@ locals {
     loki       = local.compose_services.loki.image
     tempo      = local.compose_services.tempo.image
     grafana    = local.compose_services.grafana.image
+    k6         = local.compose_services.k6.image
   }
   obs_log_options = {
     "awslogs-group"  = aws_cloudwatch_log_group.monitoring.name
@@ -67,8 +68,9 @@ resource "aws_iam_role" "monitoring_execution" {
 
 resource "aws_iam_role_policy_attachment" "monitoring_execution" {
   for_each = {
-    ecs     = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-    grafana = data.aws_iam_policy.grafana_secret_read.arn
+    ecs       = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+    grafana   = data.aws_iam_policy.grafana_secret_read.arn
+    load_test = data.aws_iam_policy.load_test_token_read.arn # the traffic container
   }
 
   role       = aws_iam_role.monitoring_execution.name
@@ -210,6 +212,26 @@ resource "aws_ecs_task_definition" "monitoring" {
       logConfiguration = {
         logDriver = "awslogs"
         options   = merge(local.obs_log_options, { "awslogs-stream-prefix" = "otel-collector" })
+      }
+    },
+    {
+      # Background traffic for the session (obs/config/k6/ambient.js), so the
+      # dashboards aren't empty when a visitor opens them. Not essential: the
+      # monitoring stack doesn't depend on it.
+      name              = "traffic"
+      image             = local.obs_images.k6
+      essential         = false
+      memoryReservation = 64
+      command           = ["run", "--quiet", "--no-summary", "/etc/obs/k6/ambient.js"]
+      environment       = [{ name = "BASE_URL", value = "https://${local.app_fqdn}" }]
+      secrets = [
+        { name = "LOAD_TEST_TOKEN", valueFrom = data.aws_ssm_parameter.load_test_token.arn }
+      ]
+      mountPoints = local.config_mount
+      dependsOn   = [{ containerName = "config", condition = "SUCCESS" }]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options   = merge(local.obs_log_options, { "awslogs-stream-prefix" = "traffic" })
       }
     },
   ])

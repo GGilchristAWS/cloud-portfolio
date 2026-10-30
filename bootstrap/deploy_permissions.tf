@@ -206,6 +206,21 @@ data "aws_iam_policy_document" "github_deploy_site" {
   }
 }
 
+# A manual deploy sets the demo's teardown timer, and the Keep up workflow
+# cancels it, through the launcher (launcher.tf).
+data "aws_iam_policy_document" "github_deploy_launcher" {
+  statement {
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.launcher.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "github_deploy_launcher" {
+  name   = "demo-launcher-invoke"
+  role   = aws_iam_role.github_deploy.id
+  policy = data.aws_iam_policy_document.github_deploy_launcher.json
+}
+
 resource "aws_iam_role_policy" "github_deploy_site" {
   name   = "static-site-publish"
   role   = aws_iam_role.github_deploy.id

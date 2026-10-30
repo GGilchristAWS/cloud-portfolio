@@ -19,7 +19,7 @@ Deploy workflow), and the demo tears itself down two hours after launch.
  https://portfolio.geoffgilchrist.com ─▶ CloudFront ─┬─ /*      ─▶ S3: static resume (rendered from the app's templates)
                                                      └─ /api/*  ─▶ Lambda launcher ─▶ GitHub Actions Deploy (launch)
                                                                     ▲              └─▶ EventBridge Scheduler, +2 h ─▶ Teardown
-                                                                    └── capped at 4 launches a day; status for the page
+                                                                    └── capped at 4 launches a day; status, extend (+1 h, once), launch email
 ```
 
 ```
@@ -53,6 +53,7 @@ Deploy workflow), and the demo tears itself down two hours after launch.
 | Logs | app logs with trace IDs → agent → gateway → **Loki**; all containers also to CloudWatch Logs | App logs panel; each line links to its trace |
 | AWS view | **CloudWatch** data source (ALB, ECS service metrics) | AWS view row |
 | Alerts | Prometheus rules for the app, tasks and monitoring stack; CloudWatch alarms outside the stack send email | Active alerts panel; email |
+| Background traffic | Every session's monitoring task runs **k6** at about 3 req/s (`obs/config/k6/ambient.js`), labeled `ambient`, so the dashboards are alive from the first minutes | Every graph; "Load-test requests by scenario" |
 | Load tests | **k6** scenarios (smoke, ramp, spike, soak, and a ~1 h burn-in running all four) call `/api/simulate`, which answers with a requested latency and error rate; labeled `synthetic`, counted in the SLO | Load testing row; purple markers on every graph |
 
 Telemetry lives as long as the monitoring task (one demo session); CloudWatch Logs keeps the durable copy of logs. Dashboards and rules are reviewed and deployed like code; anonymous visitors get read-only Grafana.
@@ -73,9 +74,10 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `ci.yml` | Pull request | Ruff + pytest; image builds + Trivy (fails on fixable CRITICAL); observability configs checked by each tool's own validator; `terraform fmt`/`validate`, tflint, Checkov; `terraform plan` of the app stack as the read-only plan role |
-| `deploy.yml` | Push to `main` (app/infra/obs changes), or manual (the launcher, or Run workflow) | Publishes the static resume. Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role (on a push, only while the demo is up), smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
+| `deploy.yml` | Push to `main` (app/infra/obs changes), or manual (the launcher, or Run workflow) | Publishes the static resume and checks it in headless Chromium (the page must get an answer from the launcher). A manual run sets the two-hour teardown timer first. Tags each image with the last commit that changed it (so a dashboard change doesn't redeploy the app, and vice versa), builds only what's new, applies Terraform as the deploy role (on a push, only while the demo is up), smoke-tests that the ALB serves the app's commit and that Grafana is healthy |
 | `load-test.yml` | Manual | Runs a k6 scenario against production; the job summary links to the dashboard for that time window |
 | `teardown.yml` | The launcher, two hours after a launch, or manual | Destroys the app stack |
+| `keep-up.yml` | Manual | Cancels the demo's teardown timer, so it stays up until Teardown is run |
 | `tool-drift.yml` | Monthly, or manual | Reports CI tool versions Dependabot can't update and keeps one issue open while any are behind |
 
 `main` accepts changes only through pull requests that pass all four CI checks (no bypass, including for admins).
@@ -93,10 +95,11 @@ The portfolio runs in its own member account of an AWS Organization. The organiz
 
 ## Running it
 
-- **Bring the demo up**: the **Launch the demo** button on the resume, or Actions → Deploy → Run workflow. Takes about 10 minutes. A launch from the button is torn down two hours later; a manual run stays up until you run Teardown. Both count toward the daily cap of 4.
+- **Bring the demo up**: the **Launch the demo** button on the resume, or Actions → Deploy → Run workflow. Takes about 10 minutes. Either way it is torn down two hours later; run Actions → Keep up after a manual Deploy to keep it until you run Teardown. Visitors can extend a session by an hour, once. Both kinds of launch count toward the daily cap of 4, and each launch from the page emails you (browser and referrer).
 - **Take it down**: Actions → Teardown → Run workflow, or wait for the scheduled teardown.
 - **Launcher token**: a fine-grained GitHub token for this repository only, with Actions read and write, stored in SSM: `aws ssm put-parameter --overwrite --type SecureString --name /cloud-portfolio/launcher/github-token --value file://token.txt`. When it expires, the launcher's alarm emails you and the resume shows the launcher as unavailable.
 - **Dashboards**: https://grafana.portfolio.geoffgilchrist.com (public, read-only). Admin password: `aws ssm get-parameter --with-decryption --name /cloud-portfolio/grafana/admin-password`.
+- **Walkthrough and screenshots**: set `walkthrough_url` and add screenshots in `app/site/media.toml`; the resume's "How the demo works" section shows them for visitors who won't wait.
 - **Load test**: Actions → Load test → Run workflow, then pick a scenario. `spike` fires the error-rate and SLO burn-rate alerts on purpose; `burnin` runs every stage in about an hour; `art` paints a pixel-art Starry Night (or any short text) on the latency heatmap.
 - **Run the observability stack locally**: `docker compose -f obs/compose.yaml up --build`, then http://localhost:3000.
 - **Change the foundation** (`bootstrap/`): apply locally with admin credentials. CI cannot modify it.

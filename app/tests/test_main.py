@@ -105,6 +105,28 @@ def test_static_site_has_resume_and_launcher(tmp_path) -> None:
     assert resume()["profile"]["name"] in page
     assert 'id="demo-launch"' in page
     assert 'href="/resume"' not in page  # the static site has only this page
+    assert 'id="how-it-works"' in page
+    assert "walkthrough" not in page  # no media configured yet
+
+
+def test_static_site_shows_configured_media(tmp_path) -> None:
+    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+    import build_site
+
+    shot = build_site.SITE_DIR / "test-shot.webp"
+    shot.write_bytes(b"webp")
+    try:
+        media = {
+            "walkthrough_url": "https://example.com/tour",
+            "screenshots": [{"file": shot.name, "caption": "Dashboards"}],
+        }
+        build_site.build(tmp_path, media)
+    finally:
+        shot.unlink()
+    page = (tmp_path / "index.html").read_text()
+    assert 'href="https://example.com/tour"' in page
+    assert 'src="media/test-shot.webp"' in page
+    assert (tmp_path / "media" / "test-shot.webp").exists()
 
 
 def test_demo_resume_has_no_launcher() -> None:

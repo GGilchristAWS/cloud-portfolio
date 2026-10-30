@@ -105,6 +105,7 @@ jobs:
             validate --config=/etc/obs/agent/config.yaml
           docker run --rm $cfg "$(image loki)" \
             -config.file=/etc/obs/loki/loki.yaml -verify-config
+          docker run --rm $cfg "$(image k6)" inspect /etc/obs/k6/ambient.js > /dev/null
           for f in obs/config/grafana/dashboards/*.json; do jq empty "$f"; done
 
       # Valid configs can still fail to start (a renamed flag, a removed

@@ -112,6 +112,7 @@ resource "github_actions_variable" "repo" {
     ECR_REPOSITORY    = aws_ecr_repository.app.name
     SITE_BUCKET       = aws_s3_bucket.site.bucket
     SITE_DISTRIBUTION = aws_cloudfront_distribution.site.id
+    LAUNCHER_FUNCTION = aws_lambda_function.launcher.function_name
   }
 
   repository    = github_repository.this.name
