@@ -192,8 +192,8 @@ resource "aws_cloudfront_distribution" "site" {
     response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
   }
 
-  # The bucket isn't listable, so a missing page is a 403 from S3. Old links to
-  # /resume, and any other path, land on the resume.
+  # The bucket isn't listable, so a missing page is a 403 from S3. Any unknown
+  # path lands on the resume, as a 404. (/resume itself is a copy, a 200.)
   custom_error_response {
     error_code         = 403
     response_code      = 404

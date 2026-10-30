@@ -1862,7 +1862,7 @@
     {
       "type": "timeseries",
       "title": "Load-test requests by scenario",
-      "description": "Which k6 scenario is running (smoke, ramp, spike or soak), counted by the app itself.",
+      "description": "Which k6 scenario is running (smoke, ramp, spike or soak, plus the ambient background traffic every demo session gets), counted by the app itself.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -3132,7 +3132,7 @@
         },
         "enable": true,
         "iconColor": "#a371f7",
-        "expr": "sum by (scenario) (rate(load_test_requests_total[1m])) > 0",
+        "expr": "sum by (scenario) (rate(load_test_requests_total{scenario!=\"ambient\"}[1m])) > 0",
         "step": "1m",
         "titleFormat": "Load test",
         "textFormat": "k6 {{scenario}}",

@@ -1,0 +1,36 @@
+{# Static site only: what the demo is, for visitors waiting on it and for those who won't. #}
+<section id="how-it-works" class="no-print">
+  <h2>How the demo works</h2>
+  <ol class="pipeline">
+    <li><strong>Launch</strong><span>This page calls a Lambda through CloudFront; at most four launches a day</span></li>
+    <li><strong>Deploy</strong><span>GitHub Actions runs Terraform as a scoped AWS role, signed in with OIDC: no keys</span></li>
+    <li><strong>Run</strong><span>A load balancer in front of two Fargate tasks in two zones, plus a monitoring task</span></li>
+    <li><strong>Observe</strong><span>OpenTelemetry into Prometheus, Tempo and Loki, shown in Grafana</span></li>
+    <li><strong>Tear down</strong><span>EventBridge Scheduler runs the Teardown workflow two hours later</span></li>
+  </ol>
+
+  <h3>What you'll see</h3>
+  <ul>
+    <li>The app's home page shows which container and availability zone answered you; reload to
+      watch the load balancer switch.</li>
+    <li>Grafana: golden signals, the SLO's error budget and a latency heatmap. Click a dot on the
+      latency graph to open that request's trace; every log line links to its trace too.</li>
+    <li>Background traffic, labeled synthetic, keeps the graphs moving from the first minutes.</li>
+    <li>The <a href="{{ repo_url }}/actions/workflows/deploy.yml">Deploy run</a> that built it:
+      tests and image scans, Terraform, then smoke and load checks against the live site.</li>
+  </ul>
+
+  {% if media.walkthrough_url %}
+  <p><a href="{{ media.walkthrough_url }}">Watch a two-minute walkthrough</a> if you'd rather not wait.</p>
+  {% endif %}
+  {% if media.screenshots %}
+  <div class="shots">
+    {% for shot in media.screenshots %}
+    <figure>
+      <a href="media/{{ shot.file }}"><img src="media/{{ shot.file }}" alt="{{ shot.caption }}" loading="lazy"></a>
+      <figcaption>{{ shot.caption }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>

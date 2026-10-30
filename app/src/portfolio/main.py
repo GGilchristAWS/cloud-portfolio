@@ -98,7 +98,7 @@ def version() -> dict[str, str]:
 # parameters are capped. Its traffic is told apart from real traffic by its
 # http_route label.
 
-LOAD_TEST_SCENARIOS = frozenset({"smoke", "ramp", "spike", "soak", "art"})
+LOAD_TEST_SCENARIOS = frozenset({"smoke", "ramp", "spike", "soak", "art", "ambient"})
 
 logger = logging.getLogger("portfolio")
 load_test_requests = metrics.get_meter("portfolio").create_counter(

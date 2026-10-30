@@ -1,0 +1,11 @@
+# Optional media for the static resume's "How the demo works" section
+# (scripts/build_site.py). Anything left empty is simply not shown.
+
+# A two-minute recorded tour, for visitors who won't wait for a launch: an
+# unlisted YouTube or Loom link keeps video out of this repository.
+walkthrough_url = ""
+
+# Screenshots, stored beside this file (WebP or PNG, about 1600 px wide).
+# [[screenshots]]
+# file = "grafana-overview.webp"
+# caption = "Golden signals and the SLO's error budget during a demo session"

@@ -1,6 +1,7 @@
 # The demo launcher: one small Lambda (launcher/handler.py) that the resume
-# page calls through CloudFront (site.tf) to start the demo, and that
-# EventBridge Scheduler calls a session length later to tear it down. It
+# page calls through CloudFront (site.tf) to start or extend the demo, that
+# EventBridge Scheduler calls a session length later to tear it down, and that
+# a manual Deploy run calls to set that timer (the Keep up workflow cancels it). Each launch from the page emails the owner. It
 # starts the repository's Deploy and Teardown workflows with a fine-grained
 # GitHub token (Actions: read and write, this repository only), which the
 # owner stores in the SSM parameter below:
@@ -14,6 +15,7 @@
 
 locals {
   launcher_name     = "${var.project}-demo-launcher"
+  launcher_arn      = "arn:aws:lambda:${var.aws_region}:${local.account_id}:function:${local.launcher_name}"
   teardown_schedule = "${var.project}-demo-teardown"
 }
 
@@ -78,8 +80,14 @@ data "aws_iam_policy_document" "launcher" {
 
   statement {
     sid       = "TeardownSchedule"
-    actions   = ["scheduler:GetSchedule", "scheduler:CreateSchedule", "scheduler:UpdateSchedule"]
+    actions   = ["scheduler:GetSchedule", "scheduler:CreateSchedule", "scheduler:UpdateSchedule", "scheduler:DeleteSchedule"]
     resources = ["arn:aws:scheduler:${var.aws_region}:${local.account_id}:schedule/default/${local.teardown_schedule}"]
+  }
+
+  statement {
+    sid       = "LaunchEmail"
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alerts.arn]
   }
 
   statement {
@@ -122,6 +130,8 @@ resource "aws_lambda_function" "launcher" {
       TOKEN_PARAMETER    = aws_ssm_parameter.launcher_github_token.name
       SCHEDULE_NAME      = local.teardown_schedule
       SCHEDULER_ROLE_ARN = aws_iam_role.launcher_scheduler.arn
+      FUNCTION_ARN       = local.launcher_arn # the schedule's target: itself
+      ALERTS_TOPIC_ARN   = aws_sns_topic.alerts.arn
     }
   }
 
@@ -190,7 +200,7 @@ resource "aws_iam_role" "launcher_scheduler" {
 data "aws_iam_policy_document" "launcher_scheduler" {
   statement {
     actions   = ["lambda:InvokeFunction"]
-    resources = [aws_lambda_function.launcher.arn]
+    resources = [local.launcher_arn]
   }
 }
 
