@@ -222,7 +222,7 @@ resource "aws_ecs_task_definition" "monitoring" {
       image             = local.obs_images.k6
       essential         = false
       memoryReservation = 64
-      command           = ["run", "--quiet", "--no-summary", "/etc/obs/k6/ambient.js"]
+      command           = ["run", "--quiet", "--summary-mode=disabled", "/etc/obs/k6/ambient.js"]
       environment       = [{ name = "BASE_URL", value = "https://${local.app_fqdn}" }]
       secrets = [
         { name = "LOAD_TEST_TOKEN", valueFrom = data.aws_ssm_parameter.load_test_token.arn }
