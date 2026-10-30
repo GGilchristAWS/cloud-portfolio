@@ -48,7 +48,7 @@ top() {
   done
   echo "Busiest viewers, last ${hours}h (requests, IP, host):"
   aws logs get-query-results --query-id "$query_id" \
-    --query 'results[].[ [?field==`requests`].value | [0], [?field==`c-ip`].value | [0], [?field==`x-host-header`].value | [0] ]' \
+    --query 'results[*].[ [?field==`requests`].value | [0], [?field==`c-ip`].value | [0], [?field==`x-host-header`].value | [0] ]' \
     --output text
 }
 
