@@ -252,7 +252,10 @@ jobs:
           SITE_BUCKET: ${{ vars.SITE_BUCKET }}
           SITE_DISTRIBUTION: ${{ vars.SITE_DISTRIBUTION }}
         run: |
-          aws s3 sync "$RUNNER_TEMP/site" "s3://$SITE_BUCKET" --delete --cache-control "max-age=300"
+          aws s3 sync "$RUNNER_TEMP/site" "s3://$SITE_BUCKET" --delete --exclude resume --cache-control "max-age=300"
+          # The app served the resume at /resume, so links to it are out there.
+          aws s3 cp "$RUNNER_TEMP/site/index.html" "s3://$SITE_BUCKET/resume" \
+            --content-type "text/html; charset=utf-8" --cache-control "max-age=300"
           aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" --paths "/*" > /dev/null
           echo "Published the resume to https://portfolio.geoffgilchrist.com" >> "$GITHUB_STEP_SUMMARY"
 
