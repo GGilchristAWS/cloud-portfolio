@@ -286,7 +286,12 @@ resource "aws_ecs_service" "monitoring" {
 
   propagate_tags          = "SERVICE"
   enable_ecs_managed_tags = true
-  wait_for_steady_state   = true
+
+  # Not waited on: the app service needs this service to exist, not to be
+  # healthy (see ecs.tf), so both roll out side by side and a launch is about
+  # two minutes faster. The deploy's Grafana and telemetry checks confirm it
+  # came up.
+  wait_for_steady_state = false
 
   depends_on = [
     aws_lb_listener_rule.grafana,
@@ -364,7 +369,7 @@ resource "aws_lb_target_group" "grafana" {
   health_check {
     path                = "/api/health"
     matcher             = "200"
-    interval            = 15
+    interval            = 10 # with 2 healthy checks, a new task takes traffic 20 s after it starts
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3

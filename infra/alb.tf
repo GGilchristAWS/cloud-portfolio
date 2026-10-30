@@ -30,7 +30,7 @@ resource "aws_lb_target_group" "app" {
   health_check {
     path                = "/health"
     matcher             = "200"
-    interval            = 15
+    interval            = 10 # with 2 healthy checks, a new task takes traffic 20 s after it starts
     timeout             = 5
     healthy_threshold   = 2
     unhealthy_threshold = 3
